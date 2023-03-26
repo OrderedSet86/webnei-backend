@@ -1,5 +1,6 @@
+.coverage
+*.db
 env/
 __pycache__/
-*.db
-.coverage
 .pytest_cache/
+.ruff_cache/
