@@ -1,6 +1,8 @@
 import strawberry
 from pydantic import Field, typing
+
 from src.graphql.scalars.stickynotes_scalar import StickyNotes
+
 
 @strawberry.type
 class User:

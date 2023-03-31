@@ -1,11 +1,12 @@
 import strawberry
 from pydantic import typing
 from strawberry.types import Info
-from src.graphql.scalars.stickynotes_scalar import StickyNotes
 
 from src.graphql.resolvers.stickynote_resolver import get_stickynote, get_stickynotes
 from src.graphql.resolvers.user_resolver import get_user, get_users
+from src.graphql.scalars.stickynotes_scalar import StickyNotes
 from src.graphql.scalars.user_scalar import User
+
 
 @strawberry.type
 class Query:

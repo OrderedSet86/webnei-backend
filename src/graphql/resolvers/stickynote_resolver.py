@@ -1,12 +1,14 @@
 from datetime import datetime
+
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import load_only
 
-from src.graphql.helpers.helper import get_only_selected_fields, get_valid_data
 from src.graphql.db.session import get_session
+from src.graphql.helpers.helper import get_only_selected_fields, get_valid_data
 from src.graphql.models import stickynotes_model, user_model
 from src.graphql.scalars.stickynotes_scalar import StickyNotes, StickyNotesDeleted, StickyNotesNotFound
 from src.graphql.scalars.user_scalar import UserNotFound
+
 
 async def get_stickynotes(info):
     """ Get all stickynotes resolver """
