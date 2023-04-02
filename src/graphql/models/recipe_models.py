@@ -31,8 +31,8 @@ class SQLItemGroup(Base):
     # recipe ID -> item "input group" IDs
     __tablename__ = 'recipe_item_group'
 
-    recipe_id = Column(String(255), primary_key=True)
-    item_inputs_id = Column(String(255))
+    item_inputs_id = Column(String(255), primary_key=True)
+    recipe_id = Column(String(255))
     item_inputs_key = Column(Integer()) # "Position" of the item (meaning is recipe dependent)
 
 
@@ -67,8 +67,8 @@ class SQLFluidGroup(Base):
     # recipe ID -> fluid "input group" IDs
     __tablename__ = 'recipe_fluid_group'
 
-    recipe_id = Column(String(255), primary_key=True)
-    fluid_inputs_id = Column(String(255))
+    fluid_inputs_id = Column(String(255), primary_key=True)
+    recipe_id = Column(String(255))
     fluid_inputs_key = Column(Integer()) # "Position" of the fluid (meaning is recipe dependent)
 
 

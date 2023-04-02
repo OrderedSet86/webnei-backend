@@ -16,6 +16,9 @@ import src.graphql.models.recipe_models as recipe_models
 # Actually follow graphql design philosophy lol
 # (currently the whole resource is grabbed regardless of what the user asks)
 
+# FIXME:
+# "Row" is wrong, switch to model name
+
 
 async def _getNEIItemInputs(session, rec_id) -> List[NEI_Item]:
     item_inputs = []
@@ -24,7 +27,7 @@ async def _getNEIItemInputs(session, rec_id) -> List[NEI_Item]:
     for row in input_group_rows:
         nei_item_info = {}
 
-        group = row[0]
+        group = row
         item_group_id = group.item_inputs_id
         print(item_group_id)
         nei_item_info['position'] = group.item_inputs_key
@@ -51,7 +54,7 @@ async def _getNEIFluidInputs(session, rec_id) -> List[NEI_Fluid]:
     for row in input_group_rows:
         nei_fluid_info = {}
 
-        group = row[0]
+        group = row
         fluid_group_id = group.fluid_inputs_id
         nei_fluid_info['position'] = group.fluid_inputs_key
 
@@ -77,7 +80,7 @@ async def _getNEIItemOutputs(session, rec_id) -> List[NEI_Item]:
     for row in output_rows:
         nei_item_info = {}
 
-        group = row[0]
+        group = row
         nei_item_info['item_id'] = group.item_outputs_value_item_id
         nei_item_info['output_probability'] = group.item_outputs_value_probability
         nei_item_info['stack_size'] = group.item_outputs_value_stack_size
@@ -101,7 +104,7 @@ async def _getNEIFluidOutputs(session, rec_id) -> List[NEI_Fluid]:
     for row in output_rows:
         nei_fluid_info = {}
 
-        group = row[0]
+        group = row
         nei_fluid_info['fluid_id'] = group.fluid_outputs_value_fluid_id
         nei_fluid_info['output_probability'] = group.fluid_outputs_value_probability
         nei_fluid_info['liters'] = group.fluid_outputs_value_amount
