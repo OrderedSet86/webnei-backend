@@ -1,5 +1,8 @@
 ## test graphql
 
+# FIXME: DON'T RUN THIS FOR NOW
+
+
 import asyncio
 from tests import load_test_env
 import pytest

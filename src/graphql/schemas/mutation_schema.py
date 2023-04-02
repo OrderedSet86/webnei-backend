@@ -10,8 +10,10 @@ from src.graphql.resolvers.user_resolver import add_user, delete_user
 class Mutation:
     # TODO: Later add mutations for user data
     # This doesn't do anything, I'm leaving it in for later reference
-    @strawberry.mutation
-    async def add_stickynotes(self, text: str, user_id: int): # -> AddStickyNotesResponse:
-        """ Add sticky note """
-        add_stickynotes_resp = await add_stickynotes(text, user_id)
-        return add_stickynotes_resp
+    pass
+
+    # @strawberry.mutation
+    # async def add_stickynotes(self, text: str, user_id: int): # -> AddStickyNotesResponse:
+    #     """ Add sticky note """
+    #     add_stickynotes_resp = await add_stickynotes(text, user_id)
+    #     return add_stickynotes_resp

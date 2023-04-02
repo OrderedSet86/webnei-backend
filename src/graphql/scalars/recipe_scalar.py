@@ -1,5 +1,5 @@
 import strawberry
-from pydantic import List
+from pydantic.typing import List
 
 
 @strawberry.type
@@ -59,6 +59,12 @@ class NEI_Base_Recipe:
 
 
 @strawberry.type
+class NEI_Recipe_Dimensions:
+    height: int
+    width: int
+
+
+@strawberry.type
 class NEI_GT_Recipe:
     recipe_id: int
 
@@ -66,10 +72,10 @@ class NEI_GT_Recipe:
 
     # Type info for recipe
     localized_machine_name: str
-    fluid_input_dims: List[int]
-    fluid_output_dims: List[int]
-    item_input_dims: List[int]
-    item_output_dims: List[int]
+    fluid_input_dims: NEI_Recipe_Dimensions
+    fluid_output_dims: NEI_Recipe_Dimensions
+    item_input_dims: NEI_Recipe_Dimensions
+    item_output_dims: NEI_Recipe_Dimensions
     icon_info: str
     icon_id: str
     shapeless: bool
