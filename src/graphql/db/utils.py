@@ -3,8 +3,6 @@ from typing import List
 from sqlalchemy import select
 from sqlalchemy.engine.row import Row
 
-from src.graphql.models.recipe_models import SQLItemGroup
-
 
 async def getAll(session, model, filter=None) -> List[Row]:
     base_stmt = select(model)
