@@ -9,7 +9,7 @@ from src.graphql.scalars.recipe_scalar import (
     NEI_Item,
     NEI_Recipe_Dimensions,
 )
-import src.graphql.models.recipe_models as recipe_models
+import src.graphql.models.recipe_models_autogen as recipe_models_autogen
 
 
 # TODO:
@@ -22,21 +22,19 @@ import src.graphql.models.recipe_models as recipe_models
 
 async def _getNEIItemInputs(session, rec_id) -> List[NEI_Item]:
     item_inputs = []
-    input_group_rows = await getAll(session, recipe_models.SQLItemGroup, filter=dict(recipe_id=rec_id))
-    print(input_group_rows)
+    input_group_rows = await getAll(session, recipe_models_autogen.RecipeItemGroup, filter=dict(recipe_id=rec_id))
     for row in input_group_rows:
         nei_item_info = {}
 
         group = row
         item_group_id = group.item_inputs_id
-        print(item_group_id)
         nei_item_info['position'] = group.item_inputs_key
 
-        group_info = await getOne(session, recipe_models.SQLItemIdAndStackSize, filter=dict(item_group_id=item_group_id))
+        group_info = await getOne(session, recipe_models_autogen.ItemGroupItemStacks, filter=dict(item_group_id=item_group_id))
         nei_item_info['item_id'] = group_info.item_stacks_item_id
         nei_item_info['stack_size'] = group_info.item_stacks_stack_size
 
-        item_info = await getOne(session, recipe_models.SQLItemDetails, filter=dict(id=nei_item_info['item_id']))
+        item_info = await getOne(session, recipe_models_autogen.Item, filter=dict(id=nei_item_info['item_id']))
         item_data = dict(item_info.__dict__)
         item_data.pop('_sa_instance_state')
         item_data.pop('id')
@@ -50,7 +48,7 @@ async def _getNEIItemInputs(session, rec_id) -> List[NEI_Item]:
 
 async def _getNEIFluidInputs(session, rec_id) -> List[NEI_Fluid]:
     fluid_inputs = []
-    input_group_rows = await getAll(session, recipe_models.SQLFluidGroup, filter=dict(recipe_id=rec_id))
+    input_group_rows = await getAll(session, recipe_models_autogen.RecipeFluidGroup, filter=dict(recipe_id=rec_id))
     for row in input_group_rows:
         nei_fluid_info = {}
 
@@ -58,11 +56,11 @@ async def _getNEIFluidInputs(session, rec_id) -> List[NEI_Fluid]:
         fluid_group_id = group.fluid_inputs_id
         nei_fluid_info['position'] = group.fluid_inputs_key
 
-        group_info = await getOne(session, recipe_models.SQLFluidIdAndLiters, filter=dict(fluid_group_id=fluid_group_id))
+        group_info = await getOne(session, recipe_models_autogen.FluidGroupFluidStacks, filter=dict(fluid_group_id=fluid_group_id))
         nei_fluid_info['fluid_id'] = group_info.fluid_stacks_fluid_id
         nei_fluid_info['liters'] = group_info.fluid_stacks_amount
 
-        fluid_info = await getOne(session, recipe_models.SQLFluidDetails, filter=dict(id=nei_fluid_info['fluid_id']))
+        fluid_info = await getOne(session, recipe_models_autogen.Fluid, filter=dict(id=nei_fluid_info['fluid_id']))
         fluid_data = dict(fluid_info.__dict__)
         fluid_data.pop('_sa_instance_state')
         fluid_data.pop('id')
@@ -76,7 +74,7 @@ async def _getNEIFluidInputs(session, rec_id) -> List[NEI_Fluid]:
 
 async def _getNEIItemOutputs(session, rec_id) -> List[NEI_Item]:
     item_outputs = []
-    output_rows = await getAll(session, recipe_models.SQLRecipeItemOutputs, filter=dict(recipe_id=rec_id))
+    output_rows = await getAll(session, recipe_models_autogen.RecipeItemOutputs, filter=dict(recipe_id=rec_id))
     for row in output_rows:
         nei_item_info = {}
 
@@ -86,7 +84,7 @@ async def _getNEIItemOutputs(session, rec_id) -> List[NEI_Item]:
         nei_item_info['stack_size'] = group.item_outputs_value_stack_size
         nei_item_info['position'] = group.item_outputs_key
 
-        item_info = await getOne(session, recipe_models.SQLItemDetails, filter=dict(id=nei_item_info['item_id']))
+        item_info = await getOne(session, recipe_models_autogen.Item, filter=dict(id=nei_item_info['item_id']))
         item_data = dict(item_info.__dict__)
         item_data.pop('_sa_instance_state')
         item_data.pop('id')
@@ -100,7 +98,7 @@ async def _getNEIItemOutputs(session, rec_id) -> List[NEI_Item]:
 
 async def _getNEIFluidOutputs(session, rec_id) -> List[NEI_Fluid]:
     fluid_outputs = []
-    output_rows = await getAll(session, recipe_models.SQLRecipeFluidOutputs, filter=dict(recipe_id=rec_id))
+    output_rows = await getAll(session, recipe_models_autogen.RecipeFluidOutputs, filter=dict(recipe_id=rec_id))
     for row in output_rows:
         nei_fluid_info = {}
 
@@ -110,7 +108,7 @@ async def _getNEIFluidOutputs(session, rec_id) -> List[NEI_Fluid]:
         nei_fluid_info['liters'] = group.fluid_outputs_value_amount
         nei_fluid_info['position'] = group.fluid_outputs_key
 
-        fluid_info = await getOne(session, recipe_models.SQLFluidDetails, filter=dict(id=nei_fluid_info['fluid_id']))
+        fluid_info = await getOne(session, recipe_models_autogen.SQLFluidDetails, filter=dict(id=nei_fluid_info['fluid_id']))
         fluid_data = dict(fluid_info.__dict__)
         fluid_data.pop('_sa_instance_state')
         fluid_data.pop('id')
@@ -135,8 +133,8 @@ async def _getNEIRecipe(session, rec_id) -> NEI_Base_Recipe:
 
 async def _getNEIGTRecipe(session, rec_id) -> NEI_GT_Recipe:
     # Get basic machine info
-    machine_type_id = (await getOne(session, recipe_models.SQLRecipe, dict(id=rec_id))).recipe_type_id
-    recipe_type_info = await getOne(session, recipe_models.SQLRecipeTypeInfo, dict(id=machine_type_id))
+    machine_type_id = (await getOne(session, recipe_models_autogen.Recipe, dict(id=rec_id))).recipe_type_id
+    recipe_type_info = await getOne(session, recipe_models_autogen.RecipeType, dict(id=machine_type_id))
     recipe_type_info = dict(recipe_type_info.__dict__)
 
     # Get base recipe info
@@ -144,7 +142,7 @@ async def _getNEIGTRecipe(session, rec_id) -> NEI_GT_Recipe:
     recipe_type_info['recipe_id'] = rec_id
 
     # Get GT specific info
-    gt_recipe_info = await getOne(session, recipe_models.SQLGregtechRecipe, dict(recipe_id=rec_id))
+    gt_recipe_info = await getOne(session, recipe_models_autogen.GregTechRecipe, dict(recipe_id=rec_id))
     gt_recipe_info = dict(gt_recipe_info.__dict__)
     gt_recipe_info['duration_ticks'] = gt_recipe_info.pop('duration')
     recipe_type_info.update(gt_recipe_info)
