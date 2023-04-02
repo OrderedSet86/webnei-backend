@@ -10,7 +10,7 @@ async def getAll(session, model, filter=None) -> List[Row]:
         assert isinstance(filter, dict)
         base_stmt = base_stmt.filter_by(**filter)
     
-    result = await session.execute(base_stmt).all()
+    result = (await session.execute(base_stmt)).all()
     return result
 
 
@@ -20,5 +20,5 @@ async def getOne(session, model, filter=None):
         assert isinstance(filter, dict)
         base_stmt = base_stmt.filter_by(**filter)
     
-    result = await session.execute(base_stmt).first()[0]
+    result = (await session.execute(base_stmt)).first()[0]
     return result

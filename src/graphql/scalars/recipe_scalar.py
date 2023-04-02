@@ -4,7 +4,7 @@ from pydantic.typing import List
 
 @strawberry.type
 class NEI_Item:
-    item_id: int
+    item_id: str
 
     position: int
     stack_size: int
@@ -26,7 +26,7 @@ class NEI_Item:
 
 @strawberry.type
 class NEI_Fluid:
-    fluid_id: int
+    fluid_id: str
 
     position: int
     liters: int
@@ -50,7 +50,7 @@ class NEI_Fluid:
 
 @strawberry.type
 class NEI_Base_Recipe:
-    recipe_id: int
+    recipe_id: str
 
     input_items: List[NEI_Item]
     input_fluids: List[NEI_Fluid]
@@ -66,7 +66,7 @@ class NEI_Recipe_Dimensions:
 
 @strawberry.type
 class NEI_GT_Recipe:
-    recipe_id: int
+    recipe_id: str
 
     base_recipe: NEI_Base_Recipe
 
@@ -79,3 +79,13 @@ class NEI_GT_Recipe:
     icon_info: str
     icon_id: str
     shapeless: bool
+
+    # GT Info for recipe
+    additional_info: str
+    amperage: int
+    duration_ticks: int
+    requires_cleanroom: bool
+    requires_low_gravity: bool
+    voltage: int
+    voltage_tier: int
+    recipe_id: int

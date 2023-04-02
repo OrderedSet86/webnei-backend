@@ -23,7 +23,7 @@ class SQLRecipe(Base):
     # recipe IDs by type (eg GT machine, crafting table)
     __tablename__ = 'recipe'
 
-    id = Column(String(255), primary_key=True)
+    id = Column('id', String(255), primary_key=True)
     recipe_type_id = Column(String(255))
 
 
