@@ -8,6 +8,7 @@ from src.app import create_app
 
 application = create_app()
 
+
 if __name__ == "__main__":
     print("Populating database...")
     asyncio.run(create_tables(engine))

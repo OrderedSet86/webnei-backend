@@ -1,6 +1,7 @@
 import os
 from pydantic import BaseSettings
 
+
 class Settings(BaseSettings):
     PROJECT_TITLE: str = "WebNEI"
     PROJECT_VERSION: str = "0.0.1"
