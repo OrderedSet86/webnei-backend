@@ -2,9 +2,8 @@
 # Some tables generate as "Table" instead of inheriting from Base, those need manual editing
 
 from sqlalchemy import BigInteger, Boolean, Column, Float, Index, Integer, PrimaryKeyConstraint, String, Table
-from sqlalchemy.orm import declarative_base
 
-Base = declarative_base()
+from . import Base
 
 
 class Aspect(Base):
