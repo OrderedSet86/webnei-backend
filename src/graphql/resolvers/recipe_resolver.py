@@ -172,7 +172,7 @@ async def _getNEIGTRecipe(session, rec_id) -> NEI_GT_Recipe:
     return NEI_GT_Recipe(**recipe_type_info)
 
 
-async def get_recipe(recipe_id, info) -> NEI_GT_Recipe:
+async def getNEIGTRecipe(recipe_id, info) -> NEI_GT_Recipe:
     async with get_session() as session:
         recipe = await _getNEIGTRecipe(session, recipe_id)
     

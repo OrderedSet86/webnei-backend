@@ -1,7 +1,9 @@
+from typing import List
+
 import strawberry
 from strawberry.types import Info
 
-from src.graphql.resolvers.recipe_resolver import get_recipe
+from src.graphql.resolvers.recipe_resolver import getNEIGTRecipe
 from src.graphql.scalars.recipe_scalar import NEI_GT_Recipe
 
 
@@ -33,8 +35,13 @@ class Query:
     #     return stickynote_dict
     
     @strawberry.field
-    async def recipe(self, info: Info, recipe_id: str) -> NEI_GT_Recipe:
+    async def getGTRecipeById(self, info: Info, recipe_id: str) -> NEI_GT_Recipe:
         """ Get recipe by id """
         # TODO: Support non GT recipes
-        user_dict = await get_recipe(recipe_id, info)
+        user_dict = await getNEIGTRecipe(recipe_id, info)
         return user_dict
+
+    @strawberry.field
+    async def getNRecipes(self, info: Info, limit: int) -> List[NEI_GT_Recipe]:
+        """ Get N recipes """
+        pass
