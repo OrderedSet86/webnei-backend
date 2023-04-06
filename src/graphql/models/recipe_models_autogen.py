@@ -97,8 +97,11 @@ class FluidGroup(Base):
 
 class FluidGroupFluidStacks(Base):
     __tablename__ = 'fluid_group_fluid_stacks'
+    __table_args__ = (
+        PrimaryKeyConstraint('fluid_stacks_fluid_id', 'fluid_group_id', 'fluid_stacks_amount', name='fluid_group_pkey'),
+    )
 
-    fluid_stacks_fluid_id = Column(String(255), primary_key=True)
+    fluid_stacks_fluid_id = Column(String(255), nullable=False)
     fluid_group_id = Column(String(255), nullable=False)
     fluid_stacks_amount = Column(Integer(), nullable=False)
 
@@ -122,8 +125,11 @@ class GregTechRecipe(Base):
 
 class GregTechRecipeItem(Base):
     __tablename__ = 'greg_tech_recipe_item'
+    __table_args__ = (
+        PrimaryKeyConstraint('greg_tech_recipe_id', 'special_items_id', name='greg_tech_recipe_pkey'),
+    )
 
-    greg_tech_recipe_id = Column(String(255), primary_key=True, nullable=False)
+    greg_tech_recipe_id = Column(String(255), nullable=False)
     special_items_id = Column(String(255), nullable=False)
 
 
@@ -170,9 +176,12 @@ class ItemGroup(Base):
 
 class ItemGroupItemStacks(Base):
     __tablename__ = 'item_group_item_stacks'
+    __table_args__ = (
+        PrimaryKeyConstraint('item_group_id', 'item_stacks_item_id', 'item_stacks_stack_size', name='item_group_pkey'),
+    )
 
     item_group_id = Column(String(255), nullable=False)
-    item_stacks_item_id = Column(String(255), primary_key=True, nullable=False)
+    item_stacks_item_id = Column(String(255), nullable=False)
     item_stacks_stack_size = Column(Integer(), nullable=False)
 
 
@@ -200,8 +209,11 @@ class Metadata(Base):
 
 class MetadataActivePlugins(Base):
     __tablename__ = 'metadata_active_plugins'
+    __table_args__ = (
+        PrimaryKeyConstraint('metadata_id', 'active_plugins', name='metadata_pkey'),
+    )
 
-    metadata_id = Column(Integer, primary_key=True, nullable=False)
+    metadata_id = Column(Integer, nullable=False)
     active_plugins = Column(String(255))
 
 

@@ -1,10 +1,20 @@
-from typing import List
+from typing import List, Dict
 
 import strawberry
 from strawberry.types import Info
 
-from src.graphql.resolvers.recipe_resolver import getNEIGTRecipe
-from src.graphql.scalars.recipe_scalar import NEI_GT_Recipe
+from src.graphql.resolvers.recipe_resolver import (
+    getNEIGTRecipe,
+    getNEIRecipesThatMakeSingleId,
+    # getNEIRecipesThatUseSingleId,
+    getNSidebarRecipes,   
+)
+from src.graphql.scalars.recipe_scalar import (
+    AssociatedRecipes,
+    NEI_Base_Recipe,
+    NEI_GT_Recipe,
+    SidebarItem,
+)
 
 
 @strawberry.type
@@ -35,13 +45,24 @@ class Query:
     #     return stickynote_dict
     
     @strawberry.field
-    async def getGTRecipeById(self, info: Info, recipe_id: str) -> NEI_GT_Recipe:
-        """ Get recipe by id """
+    async def getGTRecipeByRecipeId(self, info: Info, recipe_id: str) -> NEI_GT_Recipe:
         # TODO: Support non GT recipes
         user_dict = await getNEIGTRecipe(recipe_id, info)
         return user_dict
 
     @strawberry.field
-    async def getNRecipes(self, info: Info, limit: int) -> List[NEI_GT_Recipe]:
-        """ Get N recipes """
-        pass
+    async def getNSidebarItems(self, info: Info, limit: int) -> List[SidebarItem]:
+        user_dict = await getNSidebarRecipes(limit, info)
+        return user_dict
+
+    @strawberry.field
+    async def getRecipesThatMakeSingleId(self, info: Info, item_id: str) -> AssociatedRecipes:
+        # Supports items and fluids
+        user_dict = await getNEIRecipesThatMakeSingleId(item_id, info)
+        return user_dict 
+
+    # @strawberry.field
+    # async def getRecipesThatUseSingleId(self, info: Info, item_id: str) -> Dict["GT": List[NEI_GT_Recipe], "Other": List[NEI_Base_Recipe]]:
+    #     # Supports items and fluids
+    #     user_dict = await getNEIRecipesThatUseSingleId(item_id, info)
+    #     return user_dict 

@@ -4,6 +4,7 @@ from pydantic.typing import List
 
 @strawberry.type
 class NEI_Item:
+    id: str
     item_id: str
 
     position: int
@@ -26,6 +27,7 @@ class NEI_Item:
 
 @strawberry.type
 class NEI_Fluid:
+    id: str
     fluid_id: str
 
     position: int
@@ -88,4 +90,19 @@ class NEI_GT_Recipe:
     requires_low_gravity: bool
     voltage: int
     voltage_tier: int
-    recipe_id: int
+
+
+@strawberry.type
+class SidebarItem:
+    item_id: str
+    image_file_path: str
+    localized_name: str
+    tooltip: str
+
+
+@strawberry.type
+class AssociatedRecipes:
+    single_id: str
+    makeOrUse: str
+    GTRecipes: List[NEI_GT_Recipe]
+    OtherRecipes: List[NEI_Base_Recipe]

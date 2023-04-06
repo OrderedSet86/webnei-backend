@@ -1,6 +1,9 @@
 from sqlalchemy.inspection import inspect
 import re
 
+
+# Unused boilerplate from the template
+
 def convert_camel_case(name):
     pattern = re.compile(r'(?<!^)(?=[A-Z])')
     name = pattern.sub('_', name).lower()
