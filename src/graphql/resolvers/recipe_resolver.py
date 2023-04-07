@@ -111,7 +111,7 @@ async def _getNEIFluidOutputs(session, rec_id) -> List[NEI_Fluid]:
         nei_fluid_info['liters'] = group.fluid_outputs_value_amount
         nei_fluid_info['position'] = group.fluid_outputs_key
 
-        fluid_info = await getOne(session, recipe_models_autogen.SQLFluidDetails, filter=dict(id=nei_fluid_info['fluid_id']))
+        fluid_info = await getOne(session, recipe_models_autogen.Fluid, filter=dict(id=nei_fluid_info['fluid_id']))
         fluid_data = dict(fluid_info.__dict__)
         fluid_data.pop('_sa_instance_state')
         nei_fluid_info.update(fluid_data)
@@ -291,7 +291,7 @@ async def getNEIRecipesThatUseSingleId(single_id: int, info: Info) -> Associated
         relevant_attr = {
             'Item': 'item_inputs_id',
             'Fluid': 'fluid_inputs_id',
-        }
+        }[single_type]
 
         stmt = select(relevant_table).filter(getattr(relevant_table, relevant_attr).in_(group_ids))
         results = (await session.execute(stmt)).scalars().all()
