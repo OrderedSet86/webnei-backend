@@ -18,60 +18,64 @@ from src.graphql.scalars.recipe_scalar import (
 import src.graphql.models.recipe_models_autogen as recipe_models_autogen
 
 
+rma = recipe_models_autogen # FIXME: Temporary alias - eventually use this in all the code
+
 # TODO:
 # Actually follow graphql design philosophy lol
 # (currently the whole resource is grabbed regardless of what the user asks)
 
-# FIXME:
-# "Row" is wrong, switch to model name
+
+def _prepORMDict(item, rename={}, exclude=[], include={}):
+    d = dict(item.__dict__)
+    d.pop('_sa_instance_state')
+
+    for k, v in rename.items():
+        d[v] = d.pop(k)
+    for k in exclude:
+        d.pop(k)
+    d.update(include)
+    
+    return d
 
 
 async def _getNEIItemInputs(session, rec_id) -> List[NEI_Item]:
-    item_inputs = []
-    input_group_rows = await getAll(session, recipe_models_autogen.RecipeItemGroup, filter=dict(recipe_id=rec_id))
-    for row in input_group_rows:
-        nei_item_info = {}
+    stmt = select(rma.Item, rma.RecipeItemGroup.item_inputs_key, rma.ItemGroupItemStacks.item_stacks_stack_size) \
+        .join(rma.ItemGroupItemStacks, rma.ItemGroupItemStacks.item_stacks_item_id == rma.Item.id) \
+        .join(rma.RecipeItemGroup, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
+        .filter(rma.RecipeItemGroup.recipe_id == rec_id)
 
-        group = row
-        item_group_id = group.item_inputs_id
-        nei_item_info['position'] = group.item_inputs_key
-
-        group_info = await getOne(session, recipe_models_autogen.ItemGroupItemStacks, filter=dict(item_group_id=item_group_id))
-        nei_item_info['item_id'] = group_info.item_stacks_item_id
-        nei_item_info['stack_size'] = group_info.item_stacks_stack_size
-
-        item_info = await getOne(session, recipe_models_autogen.Item, filter=dict(id=nei_item_info['item_id']))
-        item_data = dict(item_info.__dict__)
-        item_data.pop('_sa_instance_state')
-        nei_item_info.update(item_data)
-        nei_item_info['input'] = True
-
-        item_inputs.append(NEI_Item(**nei_item_info))
+    async with get_session() as session:
+        rows = await session.execute(stmt)
+        item_inputs = []
+        for r in rows:
+            itemORM, position, stack_size = r
+            item_inputs.append(
+                NEI_Item(**_prepORMDict(
+                    itemORM,
+                    include={'stack_size': stack_size, 'position': position, 'input': True},
+                ))
+            )
     
     return item_inputs
 
 
 async def _getNEIFluidInputs(session, rec_id) -> List[NEI_Fluid]:
-    fluid_inputs = []
-    input_group_rows = await getAll(session, recipe_models_autogen.RecipeFluidGroup, filter=dict(recipe_id=rec_id))
-    for row in input_group_rows:
-        nei_fluid_info = {}
+    stmt = select(rma.Fluid, rma.RecipeFluidGroup.fluid_inputs_key, rma.FluidGroupFluidStacks.fluid_stacks_amount) \
+        .join(rma.FluidGroupFluidStacks, rma.FluidGroupFluidStacks.fluid_stacks_fluid_id == rma.Fluid.id) \
+        .join(rma.RecipeFluidGroup, rma.RecipeFluidGroup.fluid_inputs_id == rma.FluidGroupFluidStacks.fluid_group_id) \
+        .filter(rma.RecipeFluidGroup.recipe_id == rec_id)
 
-        group = row
-        fluid_group_id = group.fluid_inputs_id
-        nei_fluid_info['position'] = group.fluid_inputs_key
-
-        group_info = await getOne(session, recipe_models_autogen.FluidGroupFluidStacks, filter=dict(fluid_group_id=fluid_group_id))
-        nei_fluid_info['fluid_id'] = group_info.fluid_stacks_fluid_id
-        nei_fluid_info['liters'] = group_info.fluid_stacks_amount
-
-        fluid_info = await getOne(session, recipe_models_autogen.Fluid, filter=dict(id=nei_fluid_info['fluid_id']))
-        fluid_data = dict(fluid_info.__dict__)
-        fluid_data.pop('_sa_instance_state')
-        nei_fluid_info.update(fluid_data)
-        nei_fluid_info['input'] = True
-
-        fluid_inputs.append(NEI_Fluid(**nei_fluid_info)) 
+    async with get_session() as session:
+        rows = await session.execute(stmt)
+        fluid_inputs = []
+        for r in rows:
+            fluidORM, position, liters = r
+            fluid_inputs.append(
+                NEI_Fluid(**_prepORMDict(
+                    fluidORM,
+                    include={'liters': liters, 'position': position, 'input': True},
+                ))
+            )
     
     return fluid_inputs
 
