@@ -81,47 +81,61 @@ async def _getNEIFluidInputs(session, rec_id) -> List[NEI_Fluid]:
 
 
 async def _getNEIItemOutputs(session, rec_id) -> List[NEI_Item]:
-    item_outputs = []
-    output_rows = await getAll(session, recipe_models_autogen.RecipeItemOutputs, filter=dict(recipe_id=rec_id))
-    for row in output_rows:
-        nei_item_info = {}
+    stmt = select(rma.Item, rma.RecipeItemOutputs) \
+            .join(rma.RecipeItemOutputs, rma.RecipeItemOutputs.item_outputs_value_item_id == rma.Item.id) \
+            .filter(rma.RecipeItemOutputs.recipe_id == rec_id)
 
-        group = row
-        nei_item_info['item_id'] = group.item_outputs_value_item_id
-        nei_item_info['output_probability'] = group.item_outputs_value_probability
-        nei_item_info['stack_size'] = group.item_outputs_value_stack_size
-        nei_item_info['position'] = group.item_outputs_key
-
-        item_info = await getOne(session, recipe_models_autogen.Item, filter=dict(id=nei_item_info['item_id']))
-        item_data = dict(item_info.__dict__)
-        item_data.pop('_sa_instance_state')
-        nei_item_info.update(item_data)
-        nei_item_info['input'] = False
-
-        item_outputs.append(NEI_Item(**nei_item_info))
+    async with get_session() as session:
+        rows = await session.execute(stmt)
+        item_outputs = []
+        for r in rows:
+            itemORM, itemOutputsORM = r
+            findict = _prepORMDict(itemORM)
+            findict.update(_prepORMDict(
+                itemOutputsORM,
+                exclude=['recipe_id', 'item_outputs_value_item_id'],
+                rename={
+                    'item_outputs_value_stack_size': 'stack_size',
+                    'item_outputs_value_probability': 'output_probability',
+                    'item_outputs_key': 'position',
+                },
+                include={
+                    'input': False,
+                }
+            ))
+            item_outputs.append(
+                NEI_Item(**findict)
+            )
     
     return item_outputs
 
 
 async def _getNEIFluidOutputs(session, rec_id) -> List[NEI_Fluid]:
-    fluid_outputs = []
-    output_rows = await getAll(session, recipe_models_autogen.RecipeFluidOutputs, filter=dict(recipe_id=rec_id))
-    for row in output_rows:
-        nei_fluid_info = {}
+    stmt = select(rma.Fluid, rma.RecipeFluidOutputs) \
+            .join(rma.RecipeFluidOutputs, rma.RecipeFluidOutputs.fluid_outputs_value_fluid_id == rma.Fluid.id) \
+            .filter(rma.RecipeFluidOutputs.recipe_id == rec_id)
 
-        group = row
-        nei_fluid_info['fluid_id'] = group.fluid_outputs_value_fluid_id
-        nei_fluid_info['output_probability'] = group.fluid_outputs_value_probability
-        nei_fluid_info['liters'] = group.fluid_outputs_value_amount
-        nei_fluid_info['position'] = group.fluid_outputs_key
-
-        fluid_info = await getOne(session, recipe_models_autogen.Fluid, filter=dict(id=nei_fluid_info['fluid_id']))
-        fluid_data = dict(fluid_info.__dict__)
-        fluid_data.pop('_sa_instance_state')
-        nei_fluid_info.update(fluid_data)
-        nei_fluid_info['input'] = False
-
-        fluid_outputs.append(NEI_Fluid(**nei_fluid_info))
+    async with get_session() as session:
+        rows = await session.execute(stmt)
+        fluid_outputs = []
+        for r in rows:
+            fluidORM, fluidOutputsORM = r
+            findict = _prepORMDict(fluidORM)
+            findict.update(_prepORMDict(
+                fluidOutputsORM,
+                exclude=['recipe_id', 'fluid_outputs_value_fluid_id'],
+                rename={
+                    'fluid_outputs_value_amount': 'liters',
+                    'fluid_outputs_value_probability': 'output_probability',
+                    'fluid_outputs_key': 'position',
+                },
+                include={
+                    'input': False,
+                }
+            ))
+            fluid_outputs.append(
+                NEI_Fluid(**findict)
+            )
     
     return fluid_outputs
 
