@@ -15,10 +15,8 @@ from src.graphql.scalars.recipe_scalar import (
     NEI_Recipe_Dimensions,
     SidebarItem,
 )
-import src.graphql.models.recipe_models_autogen as recipe_models_autogen
+import src.graphql.models.recipe_models_autogen as rma
 
-
-rma = recipe_models_autogen # FIXME: Temporary alias - eventually use this in all the code
 
 # TODO:
 # Actually follow graphql design philosophy lol
@@ -152,44 +150,44 @@ async def _getNEIRecipe(session, rec_id) -> NEI_Base_Recipe:
 
 
 async def _getNEIGTRecipe(session, rec_id) -> NEI_GT_Recipe:
-    # Get basic machine info
-    machine_type_id = (await getOne(session, recipe_models_autogen.Recipe, dict(id=rec_id))).recipe_type_id
-    recipe_type_info = await getOne(session, recipe_models_autogen.RecipeType, dict(id=machine_type_id))
-    recipe_type_info = dict(recipe_type_info.__dict__)
+    stmt = select(rma.GregTechRecipe, rma.RecipeType) \
+            .join(rma.Recipe, rma.GregTechRecipe.recipe_id == rma.Recipe.id) \
+            .join(rma.RecipeType, rma.Recipe.recipe_type_id == rma.RecipeType.id) \
+            .filter(rma.GregTechRecipe.recipe_id == rec_id)
 
-    # Get base recipe info
-    recipe_type_info['base_recipe'] = await _getNEIRecipe(session, rec_id)
-    recipe_type_info['recipe_id'] = rec_id
+    findict = {}
+    async with get_session() as session:
+        rows = await session.execute(stmt)
+        findict['base_recipe'] = await _getNEIRecipe(session, rec_id)
 
-    # Get GT specific info
-    gt_recipe_info = await getOne(session, recipe_models_autogen.GregTechRecipe, dict(recipe_id=rec_id))
-    gt_recipe_info = dict(gt_recipe_info.__dict__)
-    gt_recipe_info['duration_ticks'] = gt_recipe_info.pop('duration')
-    recipe_type_info.update(gt_recipe_info)
+    gtRecipeORM, recipeTypeORM = rows.first()
+    findict.update(_prepORMDict(
+        recipeTypeORM,
+        rename={
+            'type': 'localized_machine_name',
+        },
+        exclude = [
+            'category', # They're all "gregtech"
+            'id'
+        ],
+    ))
+    findict.update(_prepORMDict(
+        gtRecipeORM,
+        rename = {
+            'duration': 'duration_ticks',
+        },
+        exclude = ['id'],
+    ))
+    for single_type in ['item', 'fluid']:
+        for direction in ['input', 'output']:
+            findict[f'{single_type}_{direction}_dims'] = NEI_Recipe_Dimensions(
+                height = findict.pop(f'{single_type}_{direction}_dimension_height'),
+                width = findict.pop(f'{single_type}_{direction}_dimension_width'),
+            )
 
-    # Reformat data
-    recipe_type_info.pop('_sa_instance_state')
-    recipe_type_info.pop('id')
-    recipe_type_info.pop('category') # They're all going to be "gregtech"
-    recipe_type_info['localized_machine_name'] = recipe_type_info.pop('type')
-    recipe_type_info['fluid_input_dims'] = NEI_Recipe_Dimensions(
-        height = recipe_type_info.pop('fluid_input_dimension_height'),
-        width = recipe_type_info.pop('fluid_input_dimension_width'),
-    )
-    recipe_type_info['fluid_output_dims'] = NEI_Recipe_Dimensions(
-        height = recipe_type_info.pop('fluid_output_dimension_height'),
-        width = recipe_type_info.pop('fluid_output_dimension_width'),
-    )
-    recipe_type_info['item_input_dims'] = NEI_Recipe_Dimensions(
-        height = recipe_type_info.pop('item_input_dimension_height'),
-        width = recipe_type_info.pop('item_input_dimension_width'),
-    )
-    recipe_type_info['item_output_dims'] = NEI_Recipe_Dimensions(
-        height = recipe_type_info.pop('item_output_dimension_height'),
-        width = recipe_type_info.pop('item_output_dimension_width'),
-    )
-
-    return NEI_GT_Recipe(**recipe_type_info)
+    gt_recipe = NEI_GT_Recipe(**findict)
+    
+    return gt_recipe
 
 
 async def getNEIGTRecipe(recipe_id, info: Info) -> NEI_GT_Recipe:
@@ -201,7 +199,7 @@ async def getNEIGTRecipe(recipe_id, info: Info) -> NEI_GT_Recipe:
 
 async def getNSidebarRecipes(limit: int, info: Info) -> List[SidebarItem]:
     async with get_session() as session:
-        stmt = select(recipe_models_autogen.Item).limit(limit)
+        stmt = select(rma.Item).limit(limit)
         results = (await session.execute(stmt)).scalars().all()
     
     sidebar_recipes = []
@@ -227,7 +225,7 @@ async def _getAndSplitNEIRecipesByType(session, recipe_ids: List[int]) -> Dict["
     async with get_session() as session:
         # 1. Filter recipes by GT or "Other"
         type_info = [
-            (await getOne(session, recipe_models_autogen.Recipe, filter=dict(id=recipe_id))).recipe_type_id.split('~')[1]
+            (await getOne(session, rma.Recipe, filter=dict(id=recipe_id))).recipe_type_id.split('~')[1]
             for recipe_id
             in recipe_ids
         ]
@@ -251,9 +249,9 @@ async def _getAndSplitNEIRecipesByType(session, recipe_ids: List[int]) -> Dict["
 
 
 async def _determineSingleIdType(session, single_id) -> str:
-    if (await getAll(session, recipe_models_autogen.Item, dict(id=single_id))):
+    if (await getOne(session, rma.Item, dict(id=single_id))):
         return 'Item'
-    elif (await getAll(session, recipe_models_autogen.Fluid, dict(id=single_id))):
+    elif (await getOne(session, rma.Fluid, dict(id=single_id))):
         return 'Fluid'
     else:
         raise ValueError(f"Invalid single_id: {single_id}")
@@ -264,8 +262,8 @@ async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> Associate
         single_type = await _determineSingleIdType(session, single_id)
 
         relevant_table = {
-            'Item': recipe_models_autogen.RecipeItemOutputs,
-            'Fluid': recipe_models_autogen.RecipeFluidOutputs,
+            'Item': rma.RecipeItemOutputs,
+            'Fluid': rma.RecipeFluidOutputs,
         }[single_type]
         relevant_filter_key = {
             'Item': 'item_outputs_value_item_id',
@@ -291,8 +289,8 @@ async def getNEIRecipesThatUseSingleId(single_id: int, info: Info) -> Associated
         single_type = await _determineSingleIdType(session, single_id)
 
         relevant_table = {
-            'Item': recipe_models_autogen.ItemGroupItemStacks,
-            'Fluid': recipe_models_autogen.FluidGroupFluidStacks,
+            'Item': rma.ItemGroupItemStacks,
+            'Fluid': rma.FluidGroupFluidStacks,
         }[single_type]
         relevant_filter_key = {
             'Item': 'item_stacks_item_id',
@@ -303,8 +301,8 @@ async def getNEIRecipesThatUseSingleId(single_id: int, info: Info) -> Associated
         group_ids = [x.item_group_id for x in results]
 
         relevant_table = {
-            'Item': recipe_models_autogen.RecipeItemGroup,
-            'Fluid': recipe_models_autogen.RecipeFluidGroup,
+            'Item': rma.RecipeItemGroup,
+            'Fluid': rma.RecipeFluidGroup,
         }[single_type]
         relevant_attr = {
             'Item': 'item_inputs_id',
