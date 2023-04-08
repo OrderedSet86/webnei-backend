@@ -1,8 +1,9 @@
+import dataclasses
 import os
-from pydantic import BaseSettings
 
 
-class Settings(BaseSettings):
+@dataclasses.dataclass
+class Settings:
     PROJECT_TITLE: str = "WebNEI"
     PROJECT_VERSION: str = "0.0.1"
     HOST_HTTP: str = os.environ.get("HOST_HTTP","http://")

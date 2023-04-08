@@ -1,5 +1,5 @@
 import strawberry
-from pydantic.typing import List
+from typing import List
 
 
 @strawberry.type

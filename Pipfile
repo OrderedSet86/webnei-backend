@@ -6,12 +6,13 @@ name = "pypi"
 [packages]
 asyncpg = "0.27.0"
 fastapi = "0.95.0"
+fastapi-utils = "0.2.1"
 psycopg2-binary = "2.9.5"
-pydantic = "1.10.7"
 python-dotenv = "1.0.0"
 SQLAlchemy = "==1.4.47"
 strawberry-graphql = "0.167.0"
 uvicorn = "0.21.1"
+pydantic = "==1.10.7"
 
 [dev-packages]
 ipykernel = "6.22.0"

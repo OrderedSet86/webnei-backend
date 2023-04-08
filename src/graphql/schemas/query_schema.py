@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List
 
 import strawberry
 from strawberry.types import Info
@@ -11,7 +11,6 @@ from src.graphql.resolvers.recipe_resolver import (
 )
 from src.graphql.scalars.recipe_scalar import (
     AssociatedRecipes,
-    NEI_Base_Recipe,
     NEI_GT_Recipe,
     SidebarItem,
 )
@@ -40,4 +39,6 @@ class Query:
     async def getRecipesThatUseSingleId(self, info: Info, item_id: str) -> AssociatedRecipes:
         # Supports items and fluids
         user_dict = await getNEIRecipesThatUseSingleId(item_id, info)
+        print(f"getRecipesThatUseSingleID returned this many GT recipes: {len(user_dict.GTRecipes)}")
+        print(f"getRecipesThatUseSingleID returned this many Other recipes: {len(user_dict.OtherRecipes)}")
         return user_dict 
