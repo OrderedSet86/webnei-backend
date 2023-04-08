@@ -1,3 +1,4 @@
+import asyncio
 from collections import defaultdict
 
 from pydantic.typing import List, Dict
@@ -42,17 +43,16 @@ async def _getNEIItemInputs(session, rec_id) -> List[NEI_Item]:
         .join(rma.RecipeItemGroup, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
         .filter(rma.RecipeItemGroup.recipe_id == rec_id)
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-        item_inputs = []
-        for r in rows:
-            itemORM, position, stack_size = r
-            item_inputs.append(
-                NEI_Item(**_prepORMDict(
-                    itemORM,
-                    include={'stack_size': stack_size, 'position': position, 'input': True},
-                ))
-            )
+    rows = await session.execute(stmt)
+    item_inputs = []
+    for r in rows:
+        itemORM, position, stack_size = r
+        item_inputs.append(
+            NEI_Item(**_prepORMDict(
+                itemORM,
+                include={'stack_size': stack_size, 'position': position, 'input': True},
+            ))
+        )
     
     return item_inputs
 
@@ -63,17 +63,16 @@ async def _getNEIFluidInputs(session, rec_id) -> List[NEI_Fluid]:
         .join(rma.RecipeFluidGroup, rma.RecipeFluidGroup.fluid_inputs_id == rma.FluidGroupFluidStacks.fluid_group_id) \
         .filter(rma.RecipeFluidGroup.recipe_id == rec_id)
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-        fluid_inputs = []
-        for r in rows:
-            fluidORM, position, liters = r
-            fluid_inputs.append(
-                NEI_Fluid(**_prepORMDict(
-                    fluidORM,
-                    include={'liters': liters, 'position': position, 'input': True},
-                ))
-            )
+    rows = await session.execute(stmt)
+    fluid_inputs = []
+    for r in rows:
+        fluidORM, position, liters = r
+        fluid_inputs.append(
+            NEI_Fluid(**_prepORMDict(
+                fluidORM,
+                include={'liters': liters, 'position': position, 'input': True},
+            ))
+        )
     
     return fluid_inputs
 
@@ -83,27 +82,26 @@ async def _getNEIItemOutputs(session, rec_id) -> List[NEI_Item]:
             .join(rma.RecipeItemOutputs, rma.RecipeItemOutputs.item_outputs_value_item_id == rma.Item.id) \
             .filter(rma.RecipeItemOutputs.recipe_id == rec_id)
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-        item_outputs = []
-        for r in rows:
-            itemORM, itemOutputsORM = r
-            findict = _prepORMDict(itemORM)
-            findict.update(_prepORMDict(
-                itemOutputsORM,
-                exclude=['recipe_id', 'item_outputs_value_item_id'],
-                rename={
-                    'item_outputs_value_stack_size': 'stack_size',
-                    'item_outputs_value_probability': 'output_probability',
-                    'item_outputs_key': 'position',
-                },
-                include={
-                    'input': False,
-                }
-            ))
-            item_outputs.append(
-                NEI_Item(**findict)
-            )
+    rows = await session.execute(stmt)
+    item_outputs = []
+    for r in rows:
+        itemORM, itemOutputsORM = r
+        findict = _prepORMDict(itemORM)
+        findict.update(_prepORMDict(
+            itemOutputsORM,
+            exclude=['recipe_id', 'item_outputs_value_item_id'],
+            rename={
+                'item_outputs_value_stack_size': 'stack_size',
+                'item_outputs_value_probability': 'output_probability',
+                'item_outputs_key': 'position',
+            },
+            include={
+                'input': False,
+            }
+        ))
+        item_outputs.append(
+            NEI_Item(**findict)
+        )
     
     return item_outputs
 
@@ -113,27 +111,26 @@ async def _getNEIFluidOutputs(session, rec_id) -> List[NEI_Fluid]:
             .join(rma.RecipeFluidOutputs, rma.RecipeFluidOutputs.fluid_outputs_value_fluid_id == rma.Fluid.id) \
             .filter(rma.RecipeFluidOutputs.recipe_id == rec_id)
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-        fluid_outputs = []
-        for r in rows:
-            fluidORM, fluidOutputsORM = r
-            findict = _prepORMDict(fluidORM)
-            findict.update(_prepORMDict(
-                fluidOutputsORM,
-                exclude=['recipe_id', 'fluid_outputs_value_fluid_id'],
-                rename={
-                    'fluid_outputs_value_amount': 'liters',
-                    'fluid_outputs_value_probability': 'output_probability',
-                    'fluid_outputs_key': 'position',
-                },
-                include={
-                    'input': False,
-                }
-            ))
-            fluid_outputs.append(
-                NEI_Fluid(**findict)
-            )
+    rows = await session.execute(stmt)
+    fluid_outputs = []
+    for r in rows:
+        fluidORM, fluidOutputsORM = r
+        findict = _prepORMDict(fluidORM)
+        findict.update(_prepORMDict(
+            fluidOutputsORM,
+            exclude=['recipe_id', 'fluid_outputs_value_fluid_id'],
+            rename={
+                'fluid_outputs_value_amount': 'liters',
+                'fluid_outputs_value_probability': 'output_probability',
+                'fluid_outputs_key': 'position',
+            },
+            include={
+                'input': False,
+            }
+        ))
+        fluid_outputs.append(
+            NEI_Fluid(**findict)
+        )
     
     return fluid_outputs
 
@@ -141,10 +138,18 @@ async def _getNEIFluidOutputs(session, rec_id) -> List[NEI_Fluid]:
 async def _getNEIRecipe(session, rec_id) -> NEI_Base_Recipe:
     construction_dict = dict(recipe_id=rec_id)
 
-    construction_dict['input_items'] = await _getNEIItemInputs(session, rec_id)
-    construction_dict['input_fluids'] = await _getNEIFluidInputs(session, rec_id)
-    construction_dict['output_items'] = await _getNEIItemOutputs(session, rec_id)
-    construction_dict['output_fluids'] = await _getNEIFluidOutputs(session, rec_id)
+    awaitables = [
+        _getNEIItemInputs(session, rec_id),
+        _getNEIFluidInputs(session, rec_id),
+        _getNEIItemOutputs(session, rec_id),
+        _getNEIFluidOutputs(session, rec_id),
+    ]
+    results = await asyncio.gather(*awaitables)
+
+    construction_dict['input_items'] = results[0]
+    construction_dict['input_fluids'] = results[1]
+    construction_dict['output_items'] = results[2]
+    construction_dict['output_fluids'] = results[3]
 
     return NEI_Base_Recipe(**construction_dict)
 
@@ -156,10 +161,9 @@ async def _getNEIGTRecipe(session, rec_id) -> NEI_GT_Recipe:
             .filter(rma.GregTechRecipe.recipe_id == rec_id)
 
     findict = {}
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-        findict['base_recipe'] = await _getNEIRecipe(session, rec_id)
+    findict['base_recipe'] = await _getNEIRecipe(session, rec_id)
 
+    rows = await session.execute(stmt)
     gtRecipeORM, recipeTypeORM = rows.first()
     findict.update(_prepORMDict(
         recipeTypeORM,
@@ -222,28 +226,21 @@ async def _getAndSplitNEIRecipesByType(session, recipe_ids: List[int]) -> Dict["
         'Other': [],
     }
 
-    async with get_session() as session:
-        # 1. Filter recipes by GT or "Other"
-        type_info = [
-            (await getOne(session, rma.Recipe, filter=dict(id=recipe_id))).recipe_type_id.split('~')[1]
-            for recipe_id
-            in recipe_ids
-        ]
+    base_stmt = select(rma.Recipe.id, rma.RecipeType.category) \
+                .join(rma.Recipe, rma.Recipe.recipe_type_id == rma.RecipeType.id) \
+                .filter(rma.Recipe.id.in_(recipe_ids)) 
+    gt_recipes_query = base_stmt.filter(rma.RecipeType.category == 'gregtech')
+    other_recipes_query = base_stmt.filter(rma.RecipeType.category != 'gregtech')
 
-        recipe_ids_by_type = defaultdict(list)
-        for recipe_id, type_id in zip(recipe_ids, type_info):
-            if type_id == 'gregtech':
-                recipe_ids_by_type['GT'].append(recipe_id)
-            else:
-                recipe_ids_by_type['Other'].append(recipe_id)
+    # Get GT recipes
+    rows = (await session.execute(gt_recipes_query))
+    awaitables = [_getNEIGTRecipe(session, recipe_id) for recipe_id, _ in rows]
+    output_recipes['GT'] = await asyncio.gather(*awaitables)
 
-        # 2. Construct recipes
-        for recipe_type, recipe_ids in recipe_ids_by_type.items():
-            for recipe_id in recipe_ids:
-                if recipe_type == 'GT':
-                    output_recipes[recipe_type].append(await getNEIGTRecipe(recipe_id, {}))
-                else:
-                    output_recipes[recipe_type].append(await _getNEIRecipe(session, recipe_id))
+    # Get non GT recipes
+    rows = (await session.execute(other_recipes_query))
+    awaitables = [_getNEIRecipe(session, recipe_id) for recipe_id, _ in rows]
+    output_recipes['Other'] = await asyncio.gather(*awaitables)
 
     return output_recipes
 
@@ -259,8 +256,10 @@ async def _determineSingleIdType(session, single_id) -> str:
 
 async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> AssociatedRecipes:
     async with get_session() as session:
+        # Figure out whether we're dealing with an item or fluid
         single_type = await _determineSingleIdType(session, single_id)
 
+        # Get all associated recipe IDs
         relevant_table = {
             'Item': rma.RecipeItemOutputs,
             'Fluid': rma.RecipeFluidOutputs,
@@ -269,11 +268,14 @@ async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> Associate
             'Item': 'item_outputs_value_item_id',
             'Fluid': 'fluid_outputs_value_fluid_id',
         }[single_type]
+        relevant_single_id_column = getattr(relevant_table, relevant_filter_key)
 
-        results = await getAll(session, relevant_table, filter={relevant_filter_key: single_id})
-        recipe_ids = [x.recipe_id for x in results]
+        recipe_ids_query = select(relevant_table.recipe_id).filter(relevant_single_id_column == single_id)
+        recipe_ids = (await session.execute(recipe_ids_query)).scalars().all()
 
-    output_recipes = await _getAndSplitNEIRecipesByType(session, recipe_ids)
+        # Construct recipes, filtering by GT / not GT
+        output_recipes = await _getAndSplitNEIRecipesByType(session, recipe_ids)
+
     output_recipes = AssociatedRecipes(
         single_id = single_id,
         makeOrUse = 'Make',
@@ -286,34 +288,21 @@ async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> Associate
 
 async def getNEIRecipesThatUseSingleId(single_id: int, info: Info) -> AssociatedRecipes:
     async with get_session() as session:
+        # Figure out whether we're dealing with an item or fluid
         single_type = await _determineSingleIdType(session, single_id)
 
-        relevant_table = {
-            'Item': rma.ItemGroupItemStacks,
-            'Fluid': rma.FluidGroupFluidStacks,
-        }[single_type]
-        relevant_filter_key = {
-            'Item': 'item_stacks_item_id',
-            'Fluid': 'fluid_stacks_fluid_id',
-        }[single_type]
+        if single_type == 'Item':
+            stmt = select(rma.RecipeItemGroup.recipe_id) \
+                .join(rma.ItemGroupItemStacks, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
+                .filter(rma.ItemGroupItemStacks.item_stacks_item_id == single_id)
+        elif single_type == 'Fluid':
+            stmt = select(rma.RecipeFluidGroup.recipe_id) \
+                .join(rma.FluidGroupFluidStacks, rma.RecipeFluidGroup.fluid_inputs_id == rma.FluidGroupFluidStacks.fluid_group_id) \
+                .filter(rma.FluidGroupFluidStacks.fluid_stacks_fluid_id == single_id)
 
-        results = await getAll(session, relevant_table, filter={relevant_filter_key: single_id})
-        group_ids = [x.item_group_id for x in results]
+        recipe_ids = (await session.execute(stmt)).scalars().all()
+        output_recipes = await _getAndSplitNEIRecipesByType(session, recipe_ids)
 
-        relevant_table = {
-            'Item': rma.RecipeItemGroup,
-            'Fluid': rma.RecipeFluidGroup,
-        }[single_type]
-        relevant_attr = {
-            'Item': 'item_inputs_id',
-            'Fluid': 'fluid_inputs_id',
-        }[single_type]
-
-        stmt = select(relevant_table).filter(getattr(relevant_table, relevant_attr).in_(group_ids))
-        results = (await session.execute(stmt)).scalars().all()
-        recipe_ids = [x.recipe_id for x in results]
-
-    output_recipes = await _getAndSplitNEIRecipesByType(session, recipe_ids)
     output_recipes = AssociatedRecipes(
         single_id = single_id,
         makeOrUse = 'Make',
