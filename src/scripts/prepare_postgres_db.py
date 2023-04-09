@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent.parent / "envs/.env"
 load_dotenv(dotenv_path=env_path)
 
+from typing import Dict, List
+
 from sqlalchemy import create_engine, text
 
 from src.graphql.core.config import settings
@@ -34,55 +36,114 @@ get_foreign_key_constraints = text("""
     AND n.nspname = 'public'
 """)
 
+def getPrimaryKeyColumns(engine, table_name: str) -> List[str]:
+    check_primary_key_query = text(f"""
+        SELECT kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+        WHERE tc.table_schema = 'public'
+        AND tc.table_name = '{table_name}'
+        AND tc.constraint_type = 'PRIMARY KEY';
+    """)
+    with engine.connect() as connection:
+        result = connection.execute(check_primary_key_query, schema_name="public", table_name=table_name)
+    column_names = [row.column_name for row in result]
+    return column_names
+
 def generateHashCommand(table_name: str, column_name: str) -> str:
     index_name = f"hash_index_{table_name}_{column_name}"
     command = f"CREATE INDEX {index_name} ON {table_name} USING hash({column_name});"
     print(f'Generated index: {command}')
     return text(command)
 
+def generatePrimaryKeyCommand(table_name: str, column_name: str) -> str:
+    constraint_name = f"pk_{table_name}"
+    command = f"ALTER TABLE {table_name} ADD CONSTRAINT {constraint_name} PRIMARY KEY ({column_name});"
+    print(f'Generated primary key: {command}')
+    return text(command)
+
+def generateForeignKeyCommand(table_name: str, column_name: str, referenced_table_name: str, referenced_column_name: str) -> str:
+    constraint_name = f"fk_{table_name}_{column_name}_{referenced_table_name}_{referenced_column_name}"
+    command = f"ALTER TABLE {table_name} ADD CONSTRAINT {constraint_name} FOREIGN KEY ({column_name}) REFERENCES {referenced_table_name} ({referenced_column_name});"
+    print(f'Generated foreign key: {command}')
+    return text(command)
+
+script_config = dict(
+    override_existing_indexes=False,
+    override_existing_primary_keys=True,
+    override_existing_foreign_keys=True,
+)
 
 with engine.connect() as connection:
-    # Drop existing indexes
-    result = connection.execute(get_drop_index_commands)
-    for row in result:
-        drop_index_command = row['drop_command']
-        connection.execute(drop_index_command)
-        print(f"Successfully executed: {drop_index_command}")
+    if script_config['override_existing_indexes']:
+        # Drop existing indexes
+        result = connection.execute(get_drop_index_commands)
+        for row in result:
+            drop_index_command = row['drop_command']
+            connection.execute(drop_index_command)
+            print(f"Successfully executed: {drop_index_command}")
 
-    # Drop existing foreign key constraints
-    result = connection.execute(get_foreign_key_constraints)
-    for row in result:
-        constraint_name = row['constraint_name']
-        table_name = row['table_name']
-        drop_constraint_command = f"ALTER TABLE {table_name} DROP CONSTRAINT {constraint_name}"
-        connection.execute(drop_constraint_command)
-        print(f"Successfully executed: {drop_constraint_command}")
+        # Add indexes for all commonly used joins
+        # _getNEIItemInputs
+        connection.execute(generateHashCommand('item_group_item_stacks', 'item_stacks_item_id'))
+        connection.execute(generateHashCommand('item_group_item_stacks', 'item_group_id'))
+        connection.execute(generateHashCommand('item', 'id'))
+        connection.execute(generateHashCommand('recipe_item_group', 'item_inputs_id'))
+        connection.execute(generateHashCommand('recipe_item_group', 'recipe_id'))
+        # _getNEIFluidInputs
+        connection.execute(generateHashCommand('fluid_group_fluid_stacks', 'fluid_stacks_fluid_id'))
+        connection.execute(generateHashCommand('fluid_group_fluid_stacks', 'fluid_group_id'))
+        connection.execute(generateHashCommand('fluid', 'id'))
+        connection.execute(generateHashCommand('recipe_fluid_group', 'fluid_inputs_id'))
+        connection.execute(generateHashCommand('recipe_fluid_group', 'recipe_id'))
+        # _getNEIItemOutputs
+        connection.execute(generateHashCommand('recipe_item_outputs', 'item_outputs_value_item_id'))
+        connection.execute(generateHashCommand('recipe_item_outputs', 'recipe_id'))
+        # _getNEIFluidOutputs
+        connection.execute(generateHashCommand('recipe_fluid_outputs', 'fluid_outputs_value_fluid_id'))
+        connection.execute(generateHashCommand('recipe_fluid_outputs', 'recipe_id'))
+        # _getNEIGTRecipe
+        connection.execute(generateHashCommand('recipe', 'id'))
+        connection.execute(generateHashCommand('recipe', 'recipe_type_id'))
+        connection.execute(generateHashCommand('greg_tech_recipe', 'recipe_id'))
+        connection.execute(generateHashCommand('recipe_type', 'id'))
+        # _getAndSplitNEIRecipesByType
+        connection.execute(generateHashCommand('recipe_type', 'category'))
 
-    # Add indexes for all commonly used joins
-    # _getNEIItemInputs
-    connection.execute(generateHashCommand('item_group_item_stacks', 'item_stacks_item_id'))
-    connection.execute(generateHashCommand('item_group_item_stacks', 'item_group_id'))
-    connection.execute(generateHashCommand('item', 'id'))
-    connection.execute(generateHashCommand('recipe_item_group', 'item_inputs_id'))
-    connection.execute(generateHashCommand('recipe_item_group', 'recipe_id'))
-    # _getNEIFluidInputs
-    connection.execute(generateHashCommand('fluid_group_fluid_stacks', 'fluid_stacks_fluid_id'))
-    connection.execute(generateHashCommand('fluid_group_fluid_stacks', 'fluid_group_id'))
-    connection.execute(generateHashCommand('fluid', 'id'))
-    connection.execute(generateHashCommand('recipe_fluid_group', 'fluid_inputs_id'))
-    connection.execute(generateHashCommand('recipe_fluid_group', 'recipe_id'))
-    # _getNEIItemOutputs
-    connection.execute(generateHashCommand('recipe_item_outputs', 'item_outputs_value_item_id'))
-    connection.execute(generateHashCommand('recipe_item_outputs', 'recipe_id'))
-    # _getNEIFluidOutputs
-    connection.execute(generateHashCommand('recipe_fluid_outputs', 'fluid_outputs_value_fluid_id'))
-    connection.execute(generateHashCommand('recipe_fluid_outputs', 'recipe_id'))
-    # _getNEIGTRecipe
-    connection.execute(generateHashCommand('recipe', 'id'))
-    connection.execute(generateHashCommand('recipe', 'recipe_type_id'))
-    connection.execute(generateHashCommand('greg_tech_recipe', 'recipe_id'))
-    connection.execute(generateHashCommand('recipe_type', 'id'))
-    # _getAndSplitNEIRecipesByType
-    connection.execute(generateHashCommand('recipe_type', 'category'))
+    if script_config['override_existing_primary_keys']:
+        # Add primary key constraints to tables without any (so sqlacodegen doesn't produce non-classes)
+        if not getPrimaryKeyColumns(engine, 'item_group_item_stacks'):
+            connection.execute(generatePrimaryKeyCommand(
+                'item_group_item_stacks',
+                'item_group_id, item_stacks_item_id, item_stacks_stack_size',
+            ))
+        if not getPrimaryKeyColumns(engine, 'fluid_group_fluid_stacks'):
+            connection.execute(generatePrimaryKeyCommand(
+                'fluid_group_fluid_stacks',
+                'fluid_group_id, fluid_stacks_fluid_id, fluid_stacks_amount',
+            ))
+        if not getPrimaryKeyColumns(engine, 'greg_tech_recipe_item'):
+            connection.execute(generatePrimaryKeyCommand(
+                'greg_tech_recipe_item',
+                'greg_tech_recipe_id, special_items_id',
+            ))
+        if not getPrimaryKeyColumns(engine, 'metadata_active_plugins'):
+            connection.execute(generatePrimaryKeyCommand(
+                'metadata_active_plugins',
+                'metadata_id, active_plugins',
+            ))
 
-    # TODO: Add foreign key relationships where appropriate
+    if script_config['override_existing_foreign_keys']:
+        # Drop existing foreign key constraints
+        result = connection.execute(get_foreign_key_constraints)
+        for row in result:
+            constraint_name = row['constraint_name']
+            table_name = row['table_name']
+            drop_constraint_command = f"ALTER TABLE {table_name} DROP CONSTRAINT {constraint_name}"
+            connection.execute(drop_constraint_command)
+            print(f"Successfully executed: {drop_constraint_command}")
+
+        # Add foreign key relationships
+        connection.execute(generateForeignKeyCommand('item_group_item_stacks', 'item_stacks_item_id', 'item', 'id'))
+        # connection.execute(generateForeignKeyCommand('item_group_item_stacks', 'item_group_id', 'recipe_item_group', 'item_inputs_id'))
