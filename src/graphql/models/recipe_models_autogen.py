@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, Column, Float, ForeignKeyConstraint, Index, Integer, PrimaryKeyConstraint, String
+from sqlalchemy import BigInteger, Boolean, Column, Float, ForeignKeyConstraint, Index, Integer, PrimaryKeyConstraint, String, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -60,6 +60,9 @@ class Fluid(Base):
     unlocalized_name = Column(String(255), nullable=False)
     viscosity = Column(Integer, nullable=False)
 
+    fluid_group_fluid_stacks = relationship('FluidGroupFluidStacks', back_populates='fluid_stacks_fluid')
+    recipe_fluid_outputs = relationship('RecipeFluidOutputs', back_populates='fluid_outputs_value_fluid')
+
 
 class FluidBlock(Base):
     __tablename__ = 'fluid_block'
@@ -92,37 +95,6 @@ class FluidGroup(Base):
     )
 
     id = Column(String(255))
-
-
-class FluidGroupFluidStacks(Base):
-    __tablename__ = 'fluid_group_fluid_stacks'
-    __table_args__ = (
-        PrimaryKeyConstraint('fluid_group_id', 'fluid_stacks_fluid_id', 'fluid_stacks_amount', name='pk_fluid_group_fluid_stacks'),
-        Index('hash_index_fluid_group_fluid_stacks_fluid_group_id', 'fluid_group_id'),
-        Index('hash_index_fluid_group_fluid_stacks_fluid_stacks_fluid_id', 'fluid_stacks_fluid_id')
-    )
-
-    fluid_group_id = Column(String(255), nullable=False)
-    fluid_stacks_amount = Column(Integer, nullable=False)
-    fluid_stacks_fluid_id = Column(String(255), nullable=False)
-
-
-class GregTechRecipe(Base):
-    __tablename__ = 'greg_tech_recipe'
-    __table_args__ = (
-        PrimaryKeyConstraint('id', name='greg_tech_recipe_pkey'),
-        Index('hash_index_greg_tech_recipe_recipe_id', 'recipe_id')
-    )
-
-    id = Column(String(255))
-    additional_info = Column(String(32767), nullable=False)
-    amperage = Column(Integer, nullable=False)
-    duration = Column(Integer, nullable=False)
-    requires_cleanroom = Column(Boolean, nullable=False)
-    requires_low_gravity = Column(Boolean, nullable=False)
-    voltage = Column(Integer, nullable=False)
-    voltage_tier = Column(String(255), nullable=False)
-    recipe_id = Column(String(255))
 
 
 class GregTechRecipeItem(Base):
@@ -167,6 +139,7 @@ class Item(Base):
     unlocalized_name = Column(String(255), nullable=False)
 
     item_group_item_stacks = relationship('ItemGroupItemStacks', back_populates='item_stacks_item')
+    recipe_item_outputs = relationship('RecipeItemOutputs', back_populates='item_outputs_value_item')
 
 
 class ItemGroup(Base):
@@ -295,31 +268,6 @@ class QuestTask(Base):
     tasks_order = Column(Integer, nullable=False)
 
 
-class Recipe(Base):
-    __tablename__ = 'recipe'
-    __table_args__ = (
-        PrimaryKeyConstraint('id', name='recipe_pkey'),
-        Index('hash_index_recipe_id', 'id'),
-        Index('hash_index_recipe_recipe_type_id', 'recipe_type_id')
-    )
-
-    id = Column(String(255))
-    recipe_type_id = Column(String(255))
-
-
-class RecipeFluidGroup(Base):
-    __tablename__ = 'recipe_fluid_group'
-    __table_args__ = (
-        PrimaryKeyConstraint('recipe_id', 'fluid_inputs_key', name='recipe_fluid_group_pkey'),
-        Index('hash_index_recipe_fluid_group_fluid_inputs_id', 'fluid_inputs_id'),
-        Index('hash_index_recipe_fluid_group_recipe_id', 'recipe_id')
-    )
-
-    recipe_id = Column(String(255), nullable=False)
-    fluid_inputs_id = Column(String(255), nullable=False)
-    fluid_inputs_key = Column(Integer, nullable=False)
-
-
 class RecipeFluidInputsFluids(Base):
     __tablename__ = 'recipe_fluid_inputs_fluids'
     __table_args__ = (
@@ -330,34 +278,6 @@ class RecipeFluidInputsFluids(Base):
     fluid_inputs_fluids_id = Column(String(255), nullable=False)
 
 
-class RecipeFluidOutputs(Base):
-    __tablename__ = 'recipe_fluid_outputs'
-    __table_args__ = (
-        PrimaryKeyConstraint('recipe_id', 'fluid_outputs_key', name='recipe_fluid_outputs_pkey'),
-        Index('hash_index_recipe_fluid_outputs_fluid_outputs_value_fluid_id', 'fluid_outputs_value_fluid_id'),
-        Index('hash_index_recipe_fluid_outputs_recipe_id', 'recipe_id')
-    )
-
-    recipe_id = Column(String(255), nullable=False)
-    fluid_outputs_value_amount = Column(Integer, nullable=False)
-    fluid_outputs_value_probability = Column(Float(53), nullable=False)
-    fluid_outputs_key = Column(Integer, nullable=False)
-    fluid_outputs_value_fluid_id = Column(String(255))
-
-
-class RecipeItemGroup(Base):
-    __tablename__ = 'recipe_item_group'
-    __table_args__ = (
-        PrimaryKeyConstraint('recipe_id', 'item_inputs_key', name='recipe_item_group_pkey'),
-        Index('hash_index_recipe_item_group_item_inputs_id', 'item_inputs_id'),
-        Index('hash_index_recipe_item_group_recipe_id', 'recipe_id')
-    )
-
-    recipe_id = Column(String(255), nullable=False)
-    item_inputs_id = Column(String(255), nullable=False)
-    item_inputs_key = Column(Integer, nullable=False)
-
-
 class RecipeItemInputsItems(Base):
     __tablename__ = 'recipe_item_inputs_items'
     __table_args__ = (
@@ -366,21 +286,6 @@ class RecipeItemInputsItems(Base):
 
     recipe_id = Column(String(255), nullable=False)
     item_inputs_items_id = Column(String(255), nullable=False)
-
-
-class RecipeItemOutputs(Base):
-    __tablename__ = 'recipe_item_outputs'
-    __table_args__ = (
-        PrimaryKeyConstraint('recipe_id', 'item_outputs_key', name='recipe_item_outputs_pkey'),
-        Index('hash_index_recipe_item_outputs_item_outputs_value_item_id', 'item_outputs_value_item_id'),
-        Index('hash_index_recipe_item_outputs_recipe_id', 'recipe_id')
-    )
-
-    recipe_id = Column(String(255), nullable=False)
-    item_outputs_value_probability = Column(Float(53), nullable=False)
-    item_outputs_value_stack_size = Column(Integer, nullable=False)
-    item_outputs_key = Column(Integer, nullable=False)
-    item_outputs_value_item_id = Column(String(255))
 
 
 class RecipeType(Base):
@@ -405,6 +310,8 @@ class RecipeType(Base):
     shapeless = Column(Boolean, nullable=False)
     type = Column(String(255), nullable=False)
     icon_id = Column(String(255))
+
+    recipe = relationship('Recipe', back_populates='recipe_type')
 
 
 class Reward(Base):
@@ -471,6 +378,22 @@ class TaskItemGroup(Base):
     items_order = Column(Integer, nullable=False)
 
 
+class FluidGroupFluidStacks(Base):
+    __tablename__ = 'fluid_group_fluid_stacks'
+    __table_args__ = (
+        ForeignKeyConstraint(['fluid_stacks_fluid_id'], ['fluid.id'], name='fk_fluid_group_fluid_stacks_fluid_stacks_fluid_id_fluid_id'),
+        PrimaryKeyConstraint('fluid_group_id', 'fluid_stacks_fluid_id', 'fluid_stacks_amount', name='pk_fluid_group_fluid_stacks'),
+        Index('hash_index_fluid_group_fluid_stacks_fluid_group_id', 'fluid_group_id'),
+        Index('hash_index_fluid_group_fluid_stacks_fluid_stacks_fluid_id', 'fluid_stacks_fluid_id')
+    )
+
+    fluid_group_id = Column(String(255), nullable=False)
+    fluid_stacks_amount = Column(Integer, nullable=False)
+    fluid_stacks_fluid_id = Column(String(255), nullable=False)
+
+    fluid_stacks_fluid = relationship('Fluid', back_populates='fluid_group_fluid_stacks')
+
+
 class ItemGroupItemStacks(Base):
     __tablename__ = 'item_group_item_stacks'
     __table_args__ = (
@@ -481,7 +404,120 @@ class ItemGroupItemStacks(Base):
     )
 
     item_group_id = Column(String(255), nullable=False)
-    item_stacks_item_id = Column(String(255), nullable=False)
+    item_stacks_item_id = Column(String(255), ForeignKey('item.id'), nullable=False)
     item_stacks_stack_size = Column(Integer, nullable=False)
 
     item_stacks_item = relationship('Item', back_populates='item_group_item_stacks')
+
+
+class Recipe(Base):
+    __tablename__ = 'recipe'
+    __table_args__ = (
+        ForeignKeyConstraint(['recipe_type_id'], ['recipe_type.id'], name='fk_recipe_recipe_type_id_recipe_type_id'),
+        PrimaryKeyConstraint('id', name='recipe_pkey'),
+        Index('hash_index_recipe_id', 'id'),
+        Index('hash_index_recipe_recipe_type_id', 'recipe_type_id')
+    )
+
+    id = Column(String(255))
+    recipe_type_id = Column(String(255))
+
+    recipe_type = relationship('RecipeType', back_populates='recipe')
+    greg_tech_recipe = relationship('GregTechRecipe', back_populates='recipe')
+    recipe_fluid_group = relationship('RecipeFluidGroup', back_populates='recipe')
+    recipe_fluid_outputs = relationship('RecipeFluidOutputs', back_populates='recipe')
+    recipe_item_group = relationship('RecipeItemGroup', back_populates='recipe')
+    recipe_item_outputs = relationship('RecipeItemOutputs', back_populates='recipe')
+
+
+class GregTechRecipe(Base):
+    __tablename__ = 'greg_tech_recipe'
+    __table_args__ = (
+        ForeignKeyConstraint(['recipe_id'], ['recipe.id'], name='fk_greg_tech_recipe_recipe_id_recipe_id'),
+        PrimaryKeyConstraint('id', name='greg_tech_recipe_pkey'),
+        Index('hash_index_greg_tech_recipe_recipe_id', 'recipe_id')
+    )
+
+    id = Column(String(255))
+    additional_info = Column(String(32767), nullable=False)
+    amperage = Column(Integer, nullable=False)
+    duration = Column(Integer, nullable=False)
+    requires_cleanroom = Column(Boolean, nullable=False)
+    requires_low_gravity = Column(Boolean, nullable=False)
+    voltage = Column(Integer, nullable=False)
+    voltage_tier = Column(String(255), nullable=False)
+    recipe_id = Column(String(255))
+
+    recipe = relationship('Recipe', back_populates='greg_tech_recipe')
+
+
+class RecipeFluidGroup(Base):
+    __tablename__ = 'recipe_fluid_group'
+    __table_args__ = (
+        ForeignKeyConstraint(['recipe_id'], ['recipe.id'], name='fk_recipe_fluid_group_recipe_id_recipe_id'),
+        PrimaryKeyConstraint('recipe_id', 'fluid_inputs_key', name='recipe_fluid_group_pkey'),
+        Index('hash_index_recipe_fluid_group_fluid_inputs_id', 'fluid_inputs_id'),
+        Index('hash_index_recipe_fluid_group_recipe_id', 'recipe_id')
+    )
+
+    recipe_id = Column(String(255), nullable=False)
+    fluid_inputs_id = Column(String(255), nullable=False)
+    fluid_inputs_key = Column(Integer, nullable=False)
+
+    recipe = relationship('Recipe', back_populates='recipe_fluid_group')
+
+
+class RecipeFluidOutputs(Base):
+    __tablename__ = 'recipe_fluid_outputs'
+    __table_args__ = (
+        ForeignKeyConstraint(['fluid_outputs_value_fluid_id'], ['fluid.id'], name='fk_recipe_fluid_outputs_fluid_outputs_value_fluid_id_fluid_id'),
+        ForeignKeyConstraint(['recipe_id'], ['recipe.id'], name='fk_recipe_fluid_outputs_recipe_id_recipe_id'),
+        PrimaryKeyConstraint('recipe_id', 'fluid_outputs_key', name='recipe_fluid_outputs_pkey'),
+        Index('hash_index_recipe_fluid_outputs_fluid_outputs_value_fluid_id', 'fluid_outputs_value_fluid_id'),
+        Index('hash_index_recipe_fluid_outputs_recipe_id', 'recipe_id')
+    )
+
+    recipe_id = Column(String(255), nullable=False)
+    fluid_outputs_value_amount = Column(Integer, nullable=False)
+    fluid_outputs_value_probability = Column(Float(53), nullable=False)
+    fluid_outputs_key = Column(Integer, nullable=False)
+    fluid_outputs_value_fluid_id = Column(String(255))
+
+    fluid_outputs_value_fluid = relationship('Fluid', back_populates='recipe_fluid_outputs')
+    recipe = relationship('Recipe', back_populates='recipe_fluid_outputs')
+
+
+class RecipeItemGroup(Base):
+    __tablename__ = 'recipe_item_group'
+    __table_args__ = (
+        ForeignKeyConstraint(['recipe_id'], ['recipe.id'], name='fk_recipe_item_group_recipe_id_recipe_id'),
+        PrimaryKeyConstraint('recipe_id', 'item_inputs_key', name='recipe_item_group_pkey'),
+        Index('hash_index_recipe_item_group_item_inputs_id', 'item_inputs_id'),
+        Index('hash_index_recipe_item_group_recipe_id', 'recipe_id')
+    )
+
+    recipe_id = Column(String(255), nullable=False)
+    item_inputs_id = Column(String(255), nullable=False)
+    item_inputs_key = Column(Integer, nullable=False)
+
+    recipe = relationship('Recipe', back_populates='recipe_item_group')
+
+
+class RecipeItemOutputs(Base):
+    __tablename__ = 'recipe_item_outputs'
+    __table_args__ = (
+        ForeignKeyConstraint(['item_outputs_value_item_id'], ['item.id'], name='fk_recipe_item_outputs_item_outputs_value_item_id_item_id'),
+        ForeignKeyConstraint(['recipe_id'], ['recipe.id'], name='fk_recipe_item_outputs_recipe_id_recipe_id'),
+        PrimaryKeyConstraint('recipe_id', 'item_outputs_key', name='recipe_item_outputs_pkey'),
+        Index('hash_index_recipe_item_outputs_item_outputs_value_item_id', 'item_outputs_value_item_id'),
+        Index('hash_index_recipe_item_outputs_recipe_id', 'recipe_id')
+    )
+
+    recipe_id = Column(String(255), nullable=False)
+    item_outputs_value_probability = Column(Float(53), nullable=False)
+    item_outputs_value_stack_size = Column(Integer, nullable=False)
+    item_outputs_key = Column(Integer, nullable=False)
+    item_outputs_value_item_id = Column(String(255))
+
+    item_outputs_value_item = relationship('Item', back_populates='recipe_item_outputs')
+    recipe = relationship('Recipe', back_populates='recipe_item_outputs')

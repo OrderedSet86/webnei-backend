@@ -1,18 +1,24 @@
+# Load env variables
 from pathlib import Path
 from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent.parent / "envs/.env"
 load_dotenv(dotenv_path=env_path)
 
-from typing import Dict, List
+from typing import List
 
 from sqlalchemy import create_engine, text
 
 from src.graphql.core.config import settings
 
 
+script_config = dict(
+    override_existing_indexes=False,
+    override_existing_primary_keys=True,
+    override_existing_foreign_keys=True,
+)
+
 database_url = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 engine = create_engine(database_url)
-
 
 get_drop_index_commands = text("""
     SELECT 
@@ -69,12 +75,6 @@ def generateForeignKeyCommand(table_name: str, column_name: str, referenced_tabl
     print(f'Generated foreign key: {command}')
     return text(command)
 
-script_config = dict(
-    override_existing_indexes=False,
-    override_existing_primary_keys=True,
-    override_existing_foreign_keys=True,
-)
-
 with engine.connect() as connection:
     if script_config['override_existing_indexes']:
         # Drop existing indexes
@@ -111,6 +111,9 @@ with engine.connect() as connection:
         # _getAndSplitNEIRecipesByType
         connection.execute(generateHashCommand('recipe_type', 'category'))
 
+        # connection.execute(generateHashCommand('recipe_item_inputs_items', 'recipe_id'))
+        # connection.execute(generateHashCommand('recipe_item_inputs_items', 'item_inputs_item_id'))
+
     if script_config['override_existing_primary_keys']:
         # Add primary key constraints to tables without any (so sqlacodegen doesn't produce non-classes)
         if not getPrimaryKeyColumns(engine, 'item_group_item_stacks'):
@@ -145,5 +148,23 @@ with engine.connect() as connection:
             print(f"Successfully executed: {drop_constraint_command}")
 
         # Add foreign key relationships
-        connection.execute(generateForeignKeyCommand('item_group_item_stacks', 'item_stacks_item_id', 'item', 'id'))
+
+        # NOTE: I wanted to do fkeys with item_group_id, but the group_ids aren't unique and are reused
         # connection.execute(generateForeignKeyCommand('item_group_item_stacks', 'item_group_id', 'recipe_item_group', 'item_inputs_id'))
+        # connection.execute(generateForeignKeyCommand('fluid_group_fluid_stacks', 'fluid_group_id', 'recipe_fluid_group', 'fluid_inputs_id'))
+
+        # _getNEIItemInputs
+        connection.execute(generateForeignKeyCommand('item_group_item_stacks', 'item_stacks_item_id', 'item', 'id'))
+        connection.execute(generateForeignKeyCommand('recipe_item_group', 'recipe_id', 'recipe', 'id'))
+        # # _getNEIFluidInputs
+        # connection.execute(generateForeignKeyCommand('fluid_group_fluid_stacks', 'fluid_stacks_fluid_id', 'fluid', 'id'))
+        # connection.execute(generateForeignKeyCommand('recipe_fluid_group', 'recipe_id', 'recipe', 'id'))
+        # # _getNEIItemOutputs
+        # connection.execute(generateForeignKeyCommand('recipe_item_outputs', 'item_outputs_value_item_id', 'item', 'id'))
+        # connection.execute(generateForeignKeyCommand('recipe_item_outputs', 'recipe_id', 'recipe', 'id'))
+        # # _getNEIFluidOutputs
+        # connection.execute(generateForeignKeyCommand('recipe_fluid_outputs', 'fluid_outputs_value_fluid_id', 'fluid', 'id'))
+        # connection.execute(generateForeignKeyCommand('recipe_fluid_outputs', 'recipe_id', 'recipe', 'id'))
+        # # _getNEIGTRecipe
+        # connection.execute(generateForeignKeyCommand('recipe', 'recipe_type_id', 'recipe_type', 'id'))
+        # connection.execute(generateForeignKeyCommand('greg_tech_recipe', 'recipe_id', 'recipe', 'id'))

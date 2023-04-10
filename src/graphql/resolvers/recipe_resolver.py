@@ -2,10 +2,13 @@ import asyncio
 import logging
 import time
 
+import psycopg2
 from typing import List, Dict
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, inspect
+from sqlalchemy.dialects import postgresql
 from strawberry.types import Info
 
+from src.graphql.db.psconn import db_cursor
 from src.graphql.db.session import get_session
 from src.graphql.db.utils import getOne
 from src.graphql.scalars.recipe_scalar import (
@@ -37,24 +40,71 @@ def _prepORMDict(item, rename={}, exclude=[], include={}):
     
     return d
 
+def getQueryStrAndParams(stmt):
+    compiled_query = stmt.compile(
+        dialect=postgresql.dialect(),
+        compile_kwargs={"literal_binds": True},
+    )
+    query_str = str(compiled_query).replace(":", "%")
+    params = tuple(compiled_query.params.values())
+    return query_str, params
+
+def constructDictFromORM(
+        results,
+        orm_object,
+        suffix_keys,
+        include={},
+        exclude=[],
+        rename={},
+    ):
+    column_names = [c_attr.key for c_attr in inspect(orm_object).mapper.column_attrs]
+    column_names.extend(suffix_keys)
+    
+    dictionaries = []
+    for result in results:
+        d = {x:y for x,y in zip(column_names, result)}
+        d.update(include)
+        for key in exclude:
+            d.pop(key)
+        for key, value in rename.items():
+            d[value] = d.pop(key)
+
+        dictionaries.append(d)
+    
+    return dictionaries
+
 
 async def _getNEIItemInputs(rec_id) -> List[NEI_Item]:
-    stmt = select(rma.Item, rma.RecipeItemGroup.item_inputs_key, rma.ItemGroupItemStacks.item_stacks_stack_size) \
-        .join(rma.ItemGroupItemStacks, rma.ItemGroupItemStacks.item_stacks_item_id == rma.Item.id) \
-        .join(rma.RecipeItemGroup, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
-        .filter(rma.RecipeItemGroup.recipe_id == rec_id)
+    # stmt = select(rma.Item, rma.RecipeItemGroup.item_inputs_key, rma.ItemGroupItemStacks.item_stacks_stack_size) \
+    #     .join(rma.ItemGroupItemStacks, rma.ItemGroupItemStacks.item_stacks_item_id == rma.Item.id) \
+    #     .join(rma.RecipeItemGroup, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
+    #     .filter(rma.RecipeItemGroup.recipe_id == rec_id)
+    
+    # query_str, params = getQueryStrAndParams(stmt)
+    query_str = f"""
+    SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name, recipe_item_group.item_inputs_key, item_group_item_stacks.item_stacks_stack_size 
+    FROM item JOIN item_group_item_stacks ON item_group_item_stacks.item_stacks_item_id = item.id JOIN recipe_item_group ON recipe_item_group.item_inputs_id = item_group_item_stacks.item_group_id 
+    WHERE recipe_item_group.recipe_id = '{rec_id}'
+    """
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-    item_inputs = []
-    for r in rows:
-        itemORM, position, stack_size = r
-        item_inputs.append(
-            NEI_Item(**_prepORMDict(
-                itemORM,
-                include={'stack_size': stack_size, 'position': position, 'input': True},
-            ))
-        )
+    with db_cursor() as cur:
+        cur.execute(query_str)
+        results = cur.fetchall()
+
+    d = constructDictFromORM(results, rma.Item, ['position', 'stack_size'], {'input': True})
+    item_inputs = [NEI_Item(**item) for item in d]
+
+    # async with get_session() as session:
+    #     rows = await session.execute(stmt)
+    # item_inputs = []
+    # for r in rows:
+    #     itemORM, position, stack_size = r
+    #     item_inputs.append(
+    #         NEI_Item(**_prepORMDict(
+    #             itemORM,
+    #             include={'stack_size': stack_size, 'position': position, 'input': True},
+    #         ))
+    #     )
     
     return item_inputs
 
