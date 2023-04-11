@@ -1,4 +1,5 @@
 import logging
+import orjson
 import strawberry
 from fastapi import FastAPI
 from fastapi_utils.timing import add_timing_middleware
@@ -23,6 +24,7 @@ def create_app():
     app = FastAPI()
     add_timing_middleware(app, record=logger.info, prefix="app", exclude="untimed")
     graphql_app = GraphQLRouter(schema)
+    graphql_app.encode_json = orjson.dumps
     app.include_router(graphql_app, prefix="/graphql")
 
     return app
