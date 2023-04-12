@@ -1,13 +1,10 @@
 import asyncio
-import logging
 import time
 
 from typing import List, Dict
-from sqlalchemy import select, and_
 from strawberry.types import Info
 
-from src.graphql.db.session import get_session
-from src.graphql.db.utils import getOne
+from src.graphql.db.asyncpg import connectionHandler
 from src.graphql.scalars.recipe_scalar import (
     AssociatedRecipes,
     NEI_Base_Recipe,
@@ -17,7 +14,6 @@ from src.graphql.scalars.recipe_scalar import (
     NEI_Recipe_Dimensions,
     SidebarItem,
 )
-import src.graphql.models.recipe_models_autogen as rma
 
 
 # TODO:
@@ -25,9 +21,12 @@ import src.graphql.models.recipe_models_autogen as rma
 # (currently the whole resource is grabbed regardless of what the user asks)
 
 
-def _prepORMDict(item, rename={}, exclude=[], include={}):
-    d = dict(item.__dict__)
-    d.pop('_sa_instance_state')
+def _prepORMDict(item, rename={}, exclude=[], include={}, apgRecord=False):
+    if apgRecord:
+        d = dict(item)
+    if not apgRecord:
+        d = dict(item.__dict__)
+        d.pop('_sa_instance_state')
 
     for k, v in rename.items():
         d[v] = d.pop(k)
@@ -39,60 +38,92 @@ def _prepORMDict(item, rename={}, exclude=[], include={}):
 
 
 async def _getNEIItemInputs(rec_id) -> List[NEI_Item]:
-    stmt = select(rma.Item, rma.RecipeItemGroup.item_inputs_key, rma.ItemGroupItemStacks.item_stacks_stack_size) \
-        .join(rma.ItemGroupItemStacks, rma.ItemGroupItemStacks.item_stacks_item_id == rma.Item.id) \
-        .join(rma.RecipeItemGroup, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
-        .filter(rma.RecipeItemGroup.recipe_id == rec_id)
+    # stmt = select(rma.Item, rma.RecipeItemGroup.item_inputs_key, rma.ItemGroupItemStacks.item_stacks_stack_size) \
+    #     .join(rma.ItemGroupItemStacks, rma.ItemGroupItemStacks.item_stacks_item_id == rma.Item.id) \
+    #     .join(rma.RecipeItemGroup, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
+    #     .filter(rma.RecipeItemGroup.recipe_id == rec_id)
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-    item_inputs = []
-    for r in rows:
-        itemORM, position, stack_size = r
-        item_inputs.append(
-            NEI_Item(**_prepORMDict(
-                itemORM,
-                include={'stack_size': stack_size, 'position': position, 'input': True},
-            ))
-        )
+    stmt = f"""
+    SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name, recipe_item_group.item_inputs_key, item_group_item_stacks.item_stacks_stack_size 
+    FROM item 
+    JOIN item_group_item_stacks ON item_group_item_stacks.item_stacks_item_id = item.id 
+    JOIN recipe_item_group ON recipe_item_group.item_inputs_id = item_group_item_stacks.item_group_id
+    WHERE recipe_item_group.recipe_id = '{rec_id}';
+    """
+
+    pool = await connectionHandler.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(stmt)
+
+    item_inputs = [
+        NEI_Item(**_prepORMDict(
+            r,
+            rename={
+                'item_stacks_stack_size': 'stack_size',
+                'item_inputs_key': 'position',
+            },
+            include={'input': True},
+            apgRecord=True,
+        ))
+        for r in rows
+    ]
     
     return item_inputs
 
 
 async def _getNEIFluidInputs(rec_id) -> List[NEI_Fluid]:
-    stmt = select(rma.Fluid, rma.RecipeFluidGroup.fluid_inputs_key, rma.FluidGroupFluidStacks.fluid_stacks_amount) \
-        .join(rma.FluidGroupFluidStacks, rma.FluidGroupFluidStacks.fluid_stacks_fluid_id == rma.Fluid.id) \
-        .join(rma.RecipeFluidGroup, rma.RecipeFluidGroup.fluid_inputs_id == rma.FluidGroupFluidStacks.fluid_group_id) \
-        .filter(rma.RecipeFluidGroup.recipe_id == rec_id)
+    # stmt = select(rma.Fluid, rma.RecipeFluidGroup.fluid_inputs_key, rma.FluidGroupFluidStacks.fluid_stacks_amount) \
+    #     .join(rma.FluidGroupFluidStacks, rma.FluidGroupFluidStacks.fluid_stacks_fluid_id == rma.Fluid.id) \
+    #     .join(rma.RecipeFluidGroup, rma.RecipeFluidGroup.fluid_inputs_id == rma.FluidGroupFluidStacks.fluid_group_id) \
+    #     .filter(rma.RecipeFluidGroup.recipe_id == rec_id)
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-    fluid_inputs = []
-    for r in rows:
-        fluidORM, position, liters = r
-        fluid_inputs.append(
-            NEI_Fluid(**_prepORMDict(
-                fluidORM,
-                include={'liters': liters, 'position': position, 'input': True},
-            ))
-        )
+    stmt = f"""
+    SELECT fluid.id, fluid.density, fluid.fluid_id, fluid.gaseous, fluid.image_file_path, fluid.internal_name, fluid.localized_name, fluid.luminosity, fluid.mod_id, fluid.nbt, fluid.temperature, fluid.unlocalized_name, fluid.viscosity, recipe_fluid_group.fluid_inputs_key, fluid_group_fluid_stacks.fluid_stacks_amount
+    FROM fluid
+    JOIN fluid_group_fluid_stacks ON fluid_group_fluid_stacks.fluid_stacks_fluid_id = fluid.id 
+    JOIN recipe_fluid_group ON recipe_fluid_group.fluid_inputs_id = fluid_group_fluid_stacks.fluid_group_id
+    WHERE recipe_fluid_group.recipe_id = '{rec_id}';
+    """
+
+    pool = await connectionHandler.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(stmt)
+
+    fluid_inputs = [
+        NEI_Fluid(**_prepORMDict(
+            r,
+            rename={
+                'fluid_stacks_amount': 'liters',
+                'fluid_inputs_key': 'position',
+            },
+            include={'input': True},
+            apgRecord=True,
+        ))
+        for r in rows
+    ]
     
     return fluid_inputs
 
 
 async def _getNEIItemOutputs(rec_id) -> List[NEI_Item]:
-    stmt = select(rma.Item, rma.RecipeItemOutputs) \
-            .join(rma.RecipeItemOutputs, rma.RecipeItemOutputs.item_outputs_value_item_id == rma.Item.id) \
-            .filter(rma.RecipeItemOutputs.recipe_id == rec_id)
+    # stmt = select(rma.Item, rma.RecipeItemOutputs) \
+    #         .join(rma.RecipeItemOutputs, rma.RecipeItemOutputs.item_outputs_value_item_id == rma.Item.id) \
+    #         .filter(rma.RecipeItemOutputs.recipe_id == rec_id)
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-    item_outputs = []
-    for r in rows:
-        itemORM, itemOutputsORM = r
-        findict = _prepORMDict(itemORM)
-        findict.update(_prepORMDict(
-            itemOutputsORM,
+    stmt = f"""
+    SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name, recipe_item_outputs.recipe_id, recipe_item_outputs.item_outputs_value_probability, recipe_item_outputs.item_outputs_value_stack_size, recipe_item_outputs.item_outputs_key, recipe_item_outputs.item_outputs_value_item_id 
+    FROM item
+    JOIN recipe_item_outputs ON recipe_item_outputs.item_outputs_value_item_id = item.id
+    WHERE recipe_item_outputs.recipe_id = '{rec_id}';
+    """
+
+    pool = await connectionHandler.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(stmt)
+
+    item_outputs = [
+        NEI_Item(**_prepORMDict(
+            r,
             exclude=['recipe_id', 'item_outputs_value_item_id'],
             rename={
                 'item_outputs_value_stack_size': 'stack_size',
@@ -101,28 +132,33 @@ async def _getNEIItemOutputs(rec_id) -> List[NEI_Item]:
             },
             include={
                 'input': False,
-            }
+            },
+            apgRecord=True
         ))
-        item_outputs.append(
-            NEI_Item(**findict)
-        )
+        for r in rows
+    ]
     
     return item_outputs
 
 
 async def _getNEIFluidOutputs(rec_id) -> List[NEI_Fluid]:
-    stmt = select(rma.Fluid, rma.RecipeFluidOutputs) \
-            .join(rma.RecipeFluidOutputs, rma.RecipeFluidOutputs.fluid_outputs_value_fluid_id == rma.Fluid.id) \
-            .filter(rma.RecipeFluidOutputs.recipe_id == rec_id)
+    # stmt = select(rma.Fluid, rma.RecipeFluidOutputs) \
+    #         .join(rma.RecipeFluidOutputs, rma.RecipeFluidOutputs.fluid_outputs_value_fluid_id == rma.Fluid.id) \
+    #         .filter(rma.RecipeFluidOutputs.recipe_id == rec_id)
 
-    async with get_session() as session:
-        rows = await session.execute(stmt)
-    fluid_outputs = []
-    for r in rows:
-        fluidORM, fluidOutputsORM = r
-        findict = _prepORMDict(fluidORM)
-        findict.update(_prepORMDict(
-            fluidOutputsORM,
+    stmt = f"""
+    SELECT fluid.id, fluid.density, fluid.fluid_id, fluid.gaseous, fluid.image_file_path, fluid.internal_name, fluid.localized_name, fluid.luminosity, fluid.mod_id, fluid.nbt, fluid.temperature, fluid.unlocalized_name, fluid.viscosity, recipe_fluid_outputs.recipe_id, recipe_fluid_outputs.fluid_outputs_value_amount, recipe_fluid_outputs.fluid_outputs_value_probability, recipe_fluid_outputs.fluid_outputs_key, recipe_fluid_outputs.fluid_outputs_value_fluid_id 
+    FROM fluid JOIN recipe_fluid_outputs ON recipe_fluid_outputs.fluid_outputs_value_fluid_id = fluid.id 
+    WHERE recipe_fluid_outputs.recipe_id = '{rec_id}'
+    """
+
+    pool = await connectionHandler.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(stmt)
+
+    fluid_outputs = [
+        NEI_Fluid(**_prepORMDict(
+            r,
             exclude=['recipe_id', 'fluid_outputs_value_fluid_id'],
             rename={
                 'fluid_outputs_value_amount': 'liters',
@@ -131,12 +167,12 @@ async def _getNEIFluidOutputs(rec_id) -> List[NEI_Fluid]:
             },
             include={
                 'input': False,
-            }
+            },
+            apgRecord=True,
         ))
-        fluid_outputs.append(
-            NEI_Fluid(**findict)
-        )
-    
+        for r in rows
+    ]
+
     return fluid_outputs
 
 
@@ -160,35 +196,38 @@ async def _getNEIRecipe(rec_id) -> NEI_Base_Recipe:
 
 
 async def _getNEIGTRecipe(rec_id) -> NEI_GT_Recipe:
-    combined_stmt = select(rma.RecipeType, rma.GregTechRecipe) \
-        .join(rma.Recipe, rma.RecipeType.id == rma.Recipe.recipe_type_id) \
-        .join(rma.GregTechRecipe, rma.GregTechRecipe.recipe_id == rma.Recipe.id) \
-        .filter(and_(rma.Recipe.id == rec_id))
+    # stmt = select(rma.RecipeType, rma.GregTechRecipe) \
+    #     .join(rma.Recipe, rma.RecipeType.id == rma.Recipe.recipe_type_id) \
+    #     .join(rma.GregTechRecipe, rma.GregTechRecipe.recipe_id == rma.Recipe.id) \
+    #     .filter(and_(rma.Recipe.id == rec_id))
+
+    stmt = f"""
+    SELECT recipe_type.id, recipe_type.category, recipe_type.fluid_input_dimension_height, recipe_type.fluid_input_dimension_width, recipe_type.fluid_output_dimension_height, recipe_type.fluid_output_dimension_width, recipe_type.icon_info, recipe_type.item_input_dimension_height, recipe_type.item_input_dimension_width, recipe_type.item_output_dimension_height, recipe_type.item_output_dimension_width, recipe_type.shapeless, recipe_type.type, recipe_type.icon_id, greg_tech_recipe.id AS greg_tech_recipe_id, greg_tech_recipe.additional_info, greg_tech_recipe.amperage, greg_tech_recipe.duration, greg_tech_recipe.requires_cleanroom, greg_tech_recipe.requires_low_gravity, greg_tech_recipe.voltage, greg_tech_recipe.voltage_tier, greg_tech_recipe.recipe_id 
+    FROM recipe_type 
+    JOIN recipe ON recipe_type.id = recipe.recipe_type_id
+    JOIN greg_tech_recipe ON greg_tech_recipe.recipe_id = recipe.id
+    WHERE recipe.id = '{rec_id}';
+    """ 
 
     findict = {}
     findict['base_recipe'] = await _getNEIRecipe(rec_id)
 
-    async with get_session() as session:
-        result = await session.execute(combined_stmt)
+    pool = await connectionHandler.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(stmt)
 
-    recipeTypeORM, gtRecipeORM = result.one()
-
-    findict.update(_prepORMDict(
-        recipeTypeORM,
+    findict.update(**_prepORMDict(
+        rows[0],
         rename={
             'type': 'localized_machine_name',
+            'duration': 'duration_ticks',
         },
         exclude = [
             'category', # They're all "gregtech"
-            'id'
+            'id',
+            'greg_tech_recipe_id',
         ],
-    ))
-    findict.update(_prepORMDict(
-        gtRecipeORM,
-        rename = {
-            'duration': 'duration_ticks',
-        },
-        exclude = ['id'],
+        apgRecord=True,
     ))
     for single_type in ['item', 'fluid']:
         for direction in ['input', 'output']:
@@ -210,45 +249,51 @@ async def getNEIGTRecipe(recipe_id, info: Info) -> NEI_GT_Recipe:
 
 
 async def getNSidebarRecipes(limit: int, info: Info) -> List[SidebarItem]:
-    stmt = select(rma.Item).limit(limit)
-    async with get_session() as session:
-        results = (await session.execute(stmt)).scalars().all()
+    # stmt = select(rma.Item).limit(limit)
+    # async with get_session() as session:
+    #     results = (await session.execute(stmt)).scalars().all()
+
+    stmt = f"""
+    SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name 
+    FROM item
+    ORDER BY item.item_id
+    LIMIT {limit}
+    """
+
+    pool = await connectionHandler.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(stmt)
     
-    sidebar_recipes = []
-    for result in results:
-        result = dict(result.__dict__)
-        sidebarItem_construction_dict = {
-            'item_id': result['id'],
-            'image_file_path': result['image_file_path'],
-            'localized_name': result['localized_name'],
-            'tooltip': result['tooltip'],
-        }
-        sidebar_recipes.append(SidebarItem(**sidebarItem_construction_dict))
+    sidebar_recipes = [
+        SidebarItem(**{
+            'item_id': r['id'],
+            'image_file_path': r['image_file_path'],
+            'localized_name': r['localized_name'],
+            'tooltip': r['tooltip'],
+        })
+        for r in rows
+    ]
     
     return sidebar_recipes
 
 
 async def _getGTRecipes(query):
-    async with get_session() as session:
-        rows = (await session.execute(query))
-    awaitables = [_getNEIGTRecipe(recipe_id) for recipe_id, _ in rows]
+    pool = await connectionHandler.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(query)
+    awaitables = [_getNEIGTRecipe(record['id']) for record in rows]
 
-    start = time.time()
     ret = await asyncio.gather(*awaitables)
-    end = time.time()
-    print(f'GT Recipes took {end - start} seconds')
     return ret
 
 
 async def _getOtherRecipes(query):
-    async with get_session() as session:
-        rows = await session.execute(query)
-    awaitables = [_getNEIRecipe(recipe_id) for recipe_id, _ in rows]
+    pool = await connectionHandler.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(query)
+    awaitables = [_getNEIRecipe(record['id']) for record in rows]
 
-    start = time.time()
     ret = await asyncio.gather(*awaitables)
-    end = time.time()
-    print(f'Other Recipes took {end - start} seconds')
     return ret
 
 
@@ -258,11 +303,14 @@ async def _getAndSplitNEIRecipesByType(recipe_ids: List[int]) -> Dict["GT": List
         'Other': [],
     }
 
-    base_stmt = select(rma.Recipe.id, rma.RecipeType.category) \
-                .join(rma.Recipe, rma.Recipe.recipe_type_id == rma.RecipeType.id) \
-                .filter(rma.Recipe.id.in_(recipe_ids)) 
-    gt_recipes_query = base_stmt.filter(rma.RecipeType.category == 'gregtech')
-    other_recipes_query = base_stmt.filter(rma.RecipeType.category != 'gregtech')
+    base_stmt = f"""
+    SELECT recipe.id, recipe_type.category 
+    FROM recipe_type
+    JOIN recipe ON recipe.recipe_type_id = recipe_type.id 
+    WHERE recipe.id IN {tuple(recipe_ids)} AND recipe_type.category
+    """
+    gt_recipes_query = base_stmt + " = 'gregtech'"
+    other_recipes_query = base_stmt + "!= 'gregtech'"
 
     gt_recipes, other_recipes = await asyncio.gather(
         _getGTRecipes(gt_recipes_query), 
@@ -274,35 +322,29 @@ async def _getAndSplitNEIRecipesByType(recipe_ids: List[int]) -> Dict["GT": List
     return output_recipes
 
 
-async def _determineSingleIdType(single_id) -> str:
-    if (await getOne(rma.Item, dict(id=single_id))):
-        return 'Item'
-    elif (await getOne(rma.Fluid, dict(id=single_id))):
-        return 'Fluid'
-    else:
-        raise ValueError(f"Invalid single_id: {single_id}")
-
-
 async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> AssociatedRecipes:
-    # Figure out whether we're dealing with an item or fluid
-    single_type = await _determineSingleIdType(single_id)
+    # Ignore the fluid/item distinction and just run the SQL queries
+    # The tables have a hash index, it's faster to just run them than check the type :)
 
-    # Get all associated recipe IDs
-    relevant_table = {
-        'Item': rma.RecipeItemOutputs,
-        'Fluid': rma.RecipeFluidOutputs,
-    }[single_type]
-    relevant_filter_key = {
-        'Item': 'item_outputs_value_item_id',
-        'Fluid': 'fluid_outputs_value_fluid_id',
-    }[single_type]
-    relevant_single_id_column = getattr(relevant_table, relevant_filter_key)
+    item_stmt = f"""
+    SELECT recipe_id
+    FROM recipe_item_outputs
+    WHERE item_outputs_value_item_id = '{single_id}';
+    """
+    fluid_stmt = f"""
+    SELECT recipe_id
+    FROM recipe_fluid_outputs
+    WHERE fluid_outputs_value_fluid_id = '{single_id}';
+    """
 
-    recipe_ids_query = select(relevant_table.recipe_id).filter(relevant_single_id_column == single_id)
-    async with get_session() as session:
-        recipe_ids = (await session.execute(recipe_ids_query)).scalars().all()
+    pool = await connectionHandler.get_pool()
 
-    # Construct recipes, filtering by GT / not GT
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(item_stmt)
+        if len(rows) == 0:
+            rows = await conn.fetch(fluid_stmt)
+
+    recipe_ids = [x['recipe_id'] for x in rows]
     output_recipes = await _getAndSplitNEIRecipesByType(recipe_ids)
 
     output_recipes = AssociatedRecipes(
@@ -316,21 +358,28 @@ async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> Associate
 
 
 async def getNEIRecipesThatUseSingleId(single_id: int, info: Info) -> AssociatedRecipes:
-    # Figure out whether we're dealing with an item or fluid
-    single_type = await _determineSingleIdType(single_id)
+    # Ignore the fluid/item distinction and just run the SQL queries
+    # The tables have a hash index, it's faster to just run them than check the type :)
 
-    if single_type == 'Item':
-        stmt = select(rma.RecipeItemGroup.recipe_id) \
-            .join(rma.ItemGroupItemStacks, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
-            .filter(rma.ItemGroupItemStacks.item_stacks_item_id == single_id)
-    elif single_type == 'Fluid':
-        stmt = select(rma.RecipeFluidGroup.recipe_id) \
-            .join(rma.FluidGroupFluidStacks, rma.RecipeFluidGroup.fluid_inputs_id == rma.FluidGroupFluidStacks.fluid_group_id) \
-            .filter(rma.FluidGroupFluidStacks.fluid_stacks_fluid_id == single_id)
+    item_stmt = f"""
+    SELECT recipe_id
+    FROM recipe_item_inputs_items
+    WHERE item_inputs_items_id = '{single_id}'
+    """
+    fluid_stmt = f"""
+    SELECT recipe_id 
+    FROM recipe_fluid_inputs_fluids
+    WHERE fluid_inputs_fluids_id = '{single_id}'
+    """
 
-    async with get_session() as session:
-        recipe_ids = (await session.execute(stmt)).scalars().all()
+    pool = await connectionHandler.get_pool()
 
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(item_stmt)
+        if len(rows) == 0:
+            rows = await conn.fetch(fluid_stmt)
+    
+    recipe_ids = [x['recipe_id'] for x in rows]
     output_recipes = await _getAndSplitNEIRecipesByType(recipe_ids)
 
     output_recipes = AssociatedRecipes(

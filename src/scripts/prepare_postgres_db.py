@@ -3,12 +3,18 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent.parent / "envs/.env"
 load_dotenv(dotenv_path=env_path)
 
-from typing import Dict, List
+from typing import List
 
 from sqlalchemy import create_engine, text
 
 from src.graphql.core.config import settings
 
+
+script_config = dict(
+    override_existing_indexes=True,
+    override_existing_primary_keys=True,
+    override_existing_foreign_keys=True,
+)
 
 database_url = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 engine = create_engine(database_url)
@@ -69,12 +75,6 @@ def generateForeignKeyCommand(table_name: str, column_name: str, referenced_tabl
     print(f'Generated foreign key: {command}')
     return text(command)
 
-script_config = dict(
-    override_existing_indexes=False,
-    override_existing_primary_keys=True,
-    override_existing_foreign_keys=True,
-)
-
 with engine.connect() as connection:
     if script_config['override_existing_indexes']:
         # Drop existing indexes
@@ -110,6 +110,9 @@ with engine.connect() as connection:
         connection.execute(generateHashCommand('recipe_type', 'id'))
         # _getAndSplitNEIRecipesByType
         connection.execute(generateHashCommand('recipe_type', 'category'))
+        # getNEIRecipesThatUseSingleId
+        connection.execute(generateHashCommand('recipe_item_inputs_items', 'item_inputs_items_id'))
+        connection.execute(generateHashCommand('recipe_fluid_inputs_fluids', 'fluid_inputs_fluids_id'))
 
     if script_config['override_existing_primary_keys']:
         # Add primary key constraints to tables without any (so sqlacodegen doesn't produce non-classes)
