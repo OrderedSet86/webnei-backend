@@ -60,7 +60,32 @@ class _PreparedQueryConnectionHandler:
                 FROM item 
                 JOIN item_group_item_stacks ON item_group_item_stacks.item_stacks_item_id = item.id 
                 JOIN recipe_item_group ON recipe_item_group.item_inputs_id = item_group_item_stacks.item_group_id
-                WHERE recipe_item_group.recipe_id = $1;
+                WHERE recipe_item_group.recipe_id = $1
+                """,
+            '_getNEIFluidInputs': f"""
+                SELECT fluid.id, fluid.density, fluid.fluid_id, fluid.gaseous, fluid.image_file_path, fluid.internal_name, fluid.localized_name, fluid.luminosity, fluid.mod_id, fluid.nbt, fluid.temperature, fluid.unlocalized_name, fluid.viscosity, recipe_fluid_group.fluid_inputs_key, fluid_group_fluid_stacks.fluid_stacks_amount
+                FROM fluid
+                JOIN fluid_group_fluid_stacks ON fluid_group_fluid_stacks.fluid_stacks_fluid_id = fluid.id 
+                JOIN recipe_fluid_group ON recipe_fluid_group.fluid_inputs_id = fluid_group_fluid_stacks.fluid_group_id
+                WHERE recipe_fluid_group.recipe_id = $1
+                """,
+            '_getNEIItemOutputs': f"""
+                SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name, recipe_item_outputs.recipe_id, recipe_item_outputs.item_outputs_value_probability, recipe_item_outputs.item_outputs_value_stack_size, recipe_item_outputs.item_outputs_key, recipe_item_outputs.item_outputs_value_item_id 
+                FROM item
+                JOIN recipe_item_outputs ON recipe_item_outputs.item_outputs_value_item_id = item.id
+                WHERE recipe_item_outputs.recipe_id = $1
+                """,
+            '_getNEIFluidOutputs': f"""
+                SELECT fluid.id, fluid.density, fluid.fluid_id, fluid.gaseous, fluid.image_file_path, fluid.internal_name, fluid.localized_name, fluid.luminosity, fluid.mod_id, fluid.nbt, fluid.temperature, fluid.unlocalized_name, fluid.viscosity, recipe_fluid_outputs.recipe_id, recipe_fluid_outputs.fluid_outputs_value_amount, recipe_fluid_outputs.fluid_outputs_value_probability, recipe_fluid_outputs.fluid_outputs_key, recipe_fluid_outputs.fluid_outputs_value_fluid_id 
+                FROM fluid JOIN recipe_fluid_outputs ON recipe_fluid_outputs.fluid_outputs_value_fluid_id = fluid.id 
+                WHERE recipe_fluid_outputs.recipe_id = $1
+                """,
+            '_getNEIGTRecipe': f"""
+                SELECT recipe_type.id, recipe_type.category, recipe_type.fluid_input_dimension_height, recipe_type.fluid_input_dimension_width, recipe_type.fluid_output_dimension_height, recipe_type.fluid_output_dimension_width, recipe_type.icon_info, recipe_type.item_input_dimension_height, recipe_type.item_input_dimension_width, recipe_type.item_output_dimension_height, recipe_type.item_output_dimension_width, recipe_type.shapeless, recipe_type.type, recipe_type.icon_id, greg_tech_recipe.id AS greg_tech_recipe_id, greg_tech_recipe.additional_info, greg_tech_recipe.amperage, greg_tech_recipe.duration, greg_tech_recipe.requires_cleanroom, greg_tech_recipe.requires_low_gravity, greg_tech_recipe.voltage, greg_tech_recipe.voltage_tier, greg_tech_recipe.recipe_id 
+                FROM recipe_type 
+                JOIN recipe ON recipe_type.id = recipe.recipe_type_id
+                JOIN greg_tech_recipe ON greg_tech_recipe.recipe_id = recipe.id
+                WHERE recipe.id = $1
                 """,
         }
 
