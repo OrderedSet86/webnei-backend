@@ -30,10 +30,11 @@ preparedQueryConnectionHandler = _PreparedQueryConnectionHandler({
     '_getNEIFluidInputs': 5,
     '_getNEIFluidOutputs': 5,
     '_getNEIGTRecipe': 2,
+    'getNSidebarRecipes': 2,
 })
 
 
-def _prepORMDict(item, rename={}, exclude=[], include={}):
+def _prepStrawberryDictFromRecord(item, rename={}, exclude=[], include={}):
     d = dict(item)
     for k, v in rename.items():
         d[v] = d.pop(k)
@@ -46,8 +47,8 @@ def _prepORMDict(item, rename={}, exclude=[], include={}):
 
 async def _getData(method, *args):
     await preparedQueryConnectionHandler.loadPools()
-    testStmt, index = await preparedQueryConnectionHandler.getPreparedStatement(method)
-    rows = await testStmt.fetch(*args)
+    stmt, index = await preparedQueryConnectionHandler.getPreparedStatement(method)
+    rows = await stmt.fetch(*args)
     await preparedQueryConnectionHandler.releasePreparedStatement(method, index)
     return rows
 
@@ -60,7 +61,7 @@ async def _getNEIItemInputs(rec_id) -> List[NEI_Item]:
 
     rows = await _getData('_getNEIItemInputs', rec_id)
     item_inputs = [
-        NEI_Item(**_prepORMDict(
+        NEI_Item(**_prepStrawberryDictFromRecord(
             r,
             rename={
                 'item_stacks_stack_size': 'stack_size',
@@ -82,7 +83,7 @@ async def _getNEIFluidInputs(rec_id) -> List[NEI_Fluid]:
 
     rows = await _getData('_getNEIFluidInputs', rec_id)
     fluid_inputs = [
-        NEI_Fluid(**_prepORMDict(
+        NEI_Fluid(**_prepStrawberryDictFromRecord(
             r,
             rename={
                 'fluid_stacks_amount': 'liters',
@@ -103,7 +104,7 @@ async def _getNEIItemOutputs(rec_id) -> List[NEI_Item]:
 
     rows = await _getData('_getNEIItemOutputs', rec_id)
     item_outputs = [
-        NEI_Item(**_prepORMDict(
+        NEI_Item(**_prepStrawberryDictFromRecord(
             r,
             exclude=['recipe_id', 'item_outputs_value_item_id'],
             rename={
@@ -128,7 +129,7 @@ async def _getNEIFluidOutputs(rec_id) -> List[NEI_Fluid]:
 
     rows = await _getData('_getNEIFluidOutputs', rec_id)
     fluid_outputs = [
-        NEI_Fluid(**_prepORMDict(
+        NEI_Fluid(**_prepStrawberryDictFromRecord(
             r,
             exclude=['recipe_id', 'fluid_outputs_value_fluid_id'],
             rename={
@@ -176,7 +177,7 @@ async def _getNEIGTRecipe(rec_id) -> NEI_GT_Recipe:
 
     rows = await _getData('_getNEIGTRecipe', rec_id)
 
-    findict.update(**_prepORMDict(
+    findict.update(**_prepStrawberryDictFromRecord(
         rows[0],
         rename={
             'type': 'localized_machine_name',
@@ -212,17 +213,7 @@ async def getNSidebarRecipes(limit: int, info: Info) -> List[SidebarItem]:
     # async with get_session() as session:
     #     results = (await session.execute(stmt)).scalars().all()
 
-    stmt = f"""
-    SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name 
-    FROM item
-    ORDER BY item.item_id
-    LIMIT {limit}
-    """
-
-    pool = await connectionHandler.get_pool()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(stmt)
-    
+    rows = await _getData('getNSidebarRecipes', limit)
     sidebar_recipes = [
         SidebarItem(**{
             'item_id': r['id'],
@@ -261,6 +252,8 @@ async def _getAndSplitNEIRecipesByType(recipe_ids: List[int]) -> Dict["GT": List
         'GT': [],
         'Other': [],
     }
+
+    # These can't get the prepared statement treatment cause the list is dynamic :(
 
     base_stmt = f"""
     SELECT recipe.id, recipe_type.category 

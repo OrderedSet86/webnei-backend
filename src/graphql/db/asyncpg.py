@@ -19,7 +19,8 @@ class _ConnectionHandler:
             database=settings.POSTGRES_DB,
             host=settings.POSTGRES_SERVER,
             port=settings.POSTGRES_PORT,
-            max_size=10,
+            max_size=5,
+            min_size=5,
             statement_cache_size=0,
         )
 
@@ -86,6 +87,12 @@ class _PreparedQueryConnectionHandler:
                 JOIN recipe ON recipe_type.id = recipe.recipe_type_id
                 JOIN greg_tech_recipe ON greg_tech_recipe.recipe_id = recipe.id
                 WHERE recipe.id = $1
+                """,
+            'getNSidebarRecipes': f"""
+                SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name 
+                FROM item
+                ORDER BY item.item_id
+                LIMIT $1
                 """,
         }
 
