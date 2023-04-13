@@ -73,6 +73,7 @@ class _PreparedQueryConnectionHandler:
 
         self._pools = {x: [] for x in config.keys()} # Not accessed after initialization
         self._semaphores = {namespace: asyncio.BoundedSemaphore(value=count) for namespace, count in config.items()}
+        self._locks = {namespace: [asyncio.Lock() for _ in range(count)] for namespace, count in config.items()}
         
         self.prepared_queries = {namespace: [] for namespace in config.keys()}
 
@@ -104,12 +105,22 @@ class _PreparedQueryConnectionHandler:
             
             self._poolsLoaded = True
 
+    async def _getFirstAvailableLock(self, namespace) -> int:
+        for index, lock in enumerate(self._locks[namespace]):
+            if lock.locked():
+                continue
+            await lock.acquire()
+            return index
+        raise Exception("No available locks")
+
+    # The implementation of these isn't completely "safe" but it should be good enough
     async def getPreparedStatement(self, namespace):
         await self._semaphores[namespace].acquire() # Decrement semaphore count or block if unavailable
-        index = self._semaphores[namespace]._value # Not technically "safe" but good enough
-        return self.prepared_queries[namespace][index]
+        index = await self._getFirstAvailableLock(namespace)
+        return self.prepared_queries[namespace][index], index
 
-    async def releasePreparedStatement(self, namespace):
+    async def releasePreparedStatement(self, namespace, index):
+        self._locks[namespace][index].release()
         self._semaphores[namespace].release()
 
     async def __aexit__(self):

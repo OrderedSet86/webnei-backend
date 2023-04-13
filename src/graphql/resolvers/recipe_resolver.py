@@ -15,6 +15,10 @@ from src.graphql.scalars.recipe_scalar import (
 )
 
 
+# NOTE: Leave the SQLA comments in if you work on this code
+# They are used for fast development of queries. You can compile them using
+# compileQueries.ipynb in the root of the repo.
+
 # TODO:
 # Actually follow graphql design philosophy lol
 # (currently the whole resource is grabbed regardless of what the user asks)
@@ -42,21 +46,10 @@ async def _getNEIItemInputs(rec_id) -> List[NEI_Item]:
     #     .join(rma.RecipeItemGroup, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
     #     .filter(rma.RecipeItemGroup.recipe_id == rec_id)
 
-    # stmt = f"""
-    # SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name, recipe_item_group.item_inputs_key, item_group_item_stacks.item_stacks_stack_size 
-    # FROM item 
-    # JOIN item_group_item_stacks ON item_group_item_stacks.item_stacks_item_id = item.id 
-    # JOIN recipe_item_group ON recipe_item_group.item_inputs_id = item_group_item_stacks.item_group_id
-    # WHERE recipe_item_group.recipe_id = '{rec_id}';
-    # """
     await preparedQueryConnectionHandler.loadPools()
-    testStmt = await preparedQueryConnectionHandler.getPreparedStatement('_getNEIItemInputs')
+    testStmt, index = await preparedQueryConnectionHandler.getPreparedStatement('_getNEIItemInputs')
     rows = await testStmt.fetch(rec_id)
-    await preparedQueryConnectionHandler.releasePreparedStatement('_getNEIItemInputs')
-
-    # pool = await connectionHandler.get_pool()
-    # async with pool.acquire() as conn:
-    #     rows = await conn.fetch(stmt)
+    await preparedQueryConnectionHandler.releasePreparedStatement('_getNEIItemInputs', index)
 
     item_inputs = [
         NEI_Item(**_prepORMDict(
