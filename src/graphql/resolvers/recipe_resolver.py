@@ -1,10 +1,9 @@
 import asyncio
-import time
 
 from typing import List, Dict
 from strawberry.types import Info
 
-from src.graphql.db.asyncpg import connectionHandler
+from src.graphql.db.asyncpg import connectionHandler, _PreparedQueryConnectionHandler
 from src.graphql.scalars.recipe_scalar import (
     AssociatedRecipes,
     NEI_Base_Recipe,
@@ -21,13 +20,13 @@ from src.graphql.scalars.recipe_scalar import (
 # (currently the whole resource is grabbed regardless of what the user asks)
 
 
-def _prepORMDict(item, rename={}, exclude=[], include={}, apgRecord=False):
-    if apgRecord:
-        d = dict(item)
-    if not apgRecord:
-        d = dict(item.__dict__)
-        d.pop('_sa_instance_state')
+preparedQueryConnectionHandler = _PreparedQueryConnectionHandler({
+    '_getNEIItemInputs': 10,
+})
 
+
+def _prepORMDict(item, rename={}, exclude=[], include={}):
+    d = dict(item)
     for k, v in rename.items():
         d[v] = d.pop(k)
     for k in exclude:
@@ -43,17 +42,21 @@ async def _getNEIItemInputs(rec_id) -> List[NEI_Item]:
     #     .join(rma.RecipeItemGroup, rma.RecipeItemGroup.item_inputs_id == rma.ItemGroupItemStacks.item_group_id) \
     #     .filter(rma.RecipeItemGroup.recipe_id == rec_id)
 
-    stmt = f"""
-    SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name, recipe_item_group.item_inputs_key, item_group_item_stacks.item_stacks_stack_size 
-    FROM item 
-    JOIN item_group_item_stacks ON item_group_item_stacks.item_stacks_item_id = item.id 
-    JOIN recipe_item_group ON recipe_item_group.item_inputs_id = item_group_item_stacks.item_group_id
-    WHERE recipe_item_group.recipe_id = '{rec_id}';
-    """
+    # stmt = f"""
+    # SELECT item.id, item.image_file_path, item.internal_name, item.item_damage, item.item_id, item.localized_name, item.max_damage, item.max_stack_size, item.mod_id, item.nbt, item.tooltip, item.unlocalized_name, recipe_item_group.item_inputs_key, item_group_item_stacks.item_stacks_stack_size 
+    # FROM item 
+    # JOIN item_group_item_stacks ON item_group_item_stacks.item_stacks_item_id = item.id 
+    # JOIN recipe_item_group ON recipe_item_group.item_inputs_id = item_group_item_stacks.item_group_id
+    # WHERE recipe_item_group.recipe_id = '{rec_id}';
+    # """
+    await preparedQueryConnectionHandler.loadPools()
+    testStmt = await preparedQueryConnectionHandler.getPreparedStatement('_getNEIItemInputs')
+    rows = await testStmt.fetch(rec_id)
+    await preparedQueryConnectionHandler.releasePreparedStatement('_getNEIItemInputs')
 
-    pool = await connectionHandler.get_pool()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(stmt)
+    # pool = await connectionHandler.get_pool()
+    # async with pool.acquire() as conn:
+    #     rows = await conn.fetch(stmt)
 
     item_inputs = [
         NEI_Item(**_prepORMDict(
@@ -63,7 +66,6 @@ async def _getNEIItemInputs(rec_id) -> List[NEI_Item]:
                 'item_inputs_key': 'position',
             },
             include={'input': True},
-            apgRecord=True,
         ))
         for r in rows
     ]
@@ -97,7 +99,6 @@ async def _getNEIFluidInputs(rec_id) -> List[NEI_Fluid]:
                 'fluid_inputs_key': 'position',
             },
             include={'input': True},
-            apgRecord=True,
         ))
         for r in rows
     ]
@@ -133,7 +134,6 @@ async def _getNEIItemOutputs(rec_id) -> List[NEI_Item]:
             include={
                 'input': False,
             },
-            apgRecord=True
         ))
         for r in rows
     ]
@@ -168,7 +168,6 @@ async def _getNEIFluidOutputs(rec_id) -> List[NEI_Fluid]:
             include={
                 'input': False,
             },
-            apgRecord=True,
         ))
         for r in rows
     ]
@@ -227,7 +226,6 @@ async def _getNEIGTRecipe(rec_id) -> NEI_GT_Recipe:
             'id',
             'greg_tech_recipe_id',
         ],
-        apgRecord=True,
     ))
     for single_type in ['item', 'fluid']:
         for direction in ['input', 'output']:
