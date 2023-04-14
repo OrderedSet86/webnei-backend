@@ -121,6 +121,7 @@ class _PreparedQueryConnectionHandler:
         self._pools = {x: [] for x in config.keys()} # Not accessed after initialization
         self._semaphores = {namespace: asyncio.BoundedSemaphore(value=count) for namespace, count in config.items()}
         self._locks = {namespace: [asyncio.Lock() for _ in range(count)] for namespace, count in config.items()}
+        self._searchingLocks = asyncio.Lock()
         
         self.prepared_queries = {namespace: [] for namespace in config.keys()}
 
@@ -153,12 +154,12 @@ class _PreparedQueryConnectionHandler:
             self._poolsLoaded = True
 
     async def _getFirstAvailableLock(self, namespace) -> int:
-        for index, lock in enumerate(self._locks[namespace]):
-            if lock.locked():
-                continue
-            await lock.acquire()
-            return index
-        raise Exception("No available locks")
+        async with self._searchingLocks:
+            for index, lock in enumerate(self._locks[namespace]):
+                if lock.locked():
+                    continue
+                await lock.acquire()
+                return index
 
     async def getPreparedStatement(self, namespace):
         await self._semaphores[namespace].acquire() # Decrement semaphore count or block if unavailable
