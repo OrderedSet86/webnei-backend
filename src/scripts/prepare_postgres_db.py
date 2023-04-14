@@ -57,11 +57,17 @@ def getPrimaryKeyColumns(engine, table_name: str) -> List[str]:
     column_names = [row.column_name for row in result]
     return column_names
 
-def generateHashCommand(table_name: str, column_name: str) -> str:
-    index_name = f"hash_index_{table_name}_{column_name}"
-    command = f"CREATE INDEX {index_name} ON {table_name} USING hash({column_name});"
+def generateIndexCommand(table_name: str, column_name: str, index_type: str) -> str:
+    index_name = f"{index_type}_index_{table_name}_{column_name}"
+    if index_type == 'btree':
+        command = f"CREATE INDEX {index_name} ON {table_name} ({column_name})"
+    elif index_type == 'hash':
+        command = f"CREATE INDEX {index_name} ON {table_name} USING hash({column_name});"
     print(f'Generated index: {command}')
     return text(command)
+
+def generateHashCommand(table_name: str, column_name: str) -> str:
+    return generateIndexCommand(table_name, column_name, 'hash')
 
 def generatePrimaryKeyCommand(table_name: str, column_name: str) -> str:
     constraint_name = f"pk_{table_name}"
@@ -113,6 +119,9 @@ with engine.connect() as connection:
         # getNEIRecipesThatUseSingleId
         connection.execute(generateHashCommand('recipe_item_inputs_items', 'item_inputs_items_id'))
         connection.execute(generateHashCommand('recipe_fluid_inputs_fluids', 'fluid_inputs_fluids_id'))
+        # getNSearchbarRecipes
+        # Need to do b-tree for LIKE query
+        connection.execute(generateIndexCommand('item', 'localized_name', 'btree'))
 
     if script_config['override_existing_primary_keys']:
         # Add primary key constraints to tables without any (so sqlacodegen doesn't produce non-classes)
@@ -148,5 +157,5 @@ with engine.connect() as connection:
             print(f"Successfully executed: {drop_constraint_command}")
 
         # Add foreign key relationships
-        connection.execute(generateForeignKeyCommand('item_group_item_stacks', 'item_stacks_item_id', 'item', 'id'))
+        # connection.execute(generateForeignKeyCommand('item_group_item_stacks', 'item_stacks_item_id', 'item', 'id'))
         # connection.execute(generateForeignKeyCommand('item_group_item_stacks', 'item_group_id', 'recipe_item_group', 'item_inputs_id'))

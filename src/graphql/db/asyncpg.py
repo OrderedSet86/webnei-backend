@@ -94,6 +94,21 @@ class _PreparedQueryConnectionHandler:
                 ORDER BY item.item_id
                 LIMIT $1
                 """,
+            'getNSidebarRecipesContains': f"""
+                SELECT *
+                FROM item
+                WHERE LOWER(item.localized_name) LIKE $2
+                AND item.localized_name != ''
+                ORDER BY item.item_id
+                LIMIT $1
+                """,
+            # TODO: Support tooltip and nbt search
+            'getNSidebarRecipesRegex': f"""
+                SELECT *
+                FROM item
+                WHERE item.localized_name ~* $2
+                LIMIT $1
+                """,
         }
 
         self._config = config
@@ -145,7 +160,6 @@ class _PreparedQueryConnectionHandler:
             return index
         raise Exception("No available locks")
 
-    # The implementation of these isn't completely "safe" but it should be good enough
     async def getPreparedStatement(self, namespace):
         await self._semaphores[namespace].acquire() # Decrement semaphore count or block if unavailable
         index = await self._getFirstAvailableLock(namespace)

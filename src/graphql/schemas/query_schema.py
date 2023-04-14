@@ -25,8 +25,8 @@ class Query:
         return user_dict
 
     @strawberry.field
-    async def getNSidebarItems(self, info: Info, limit: int) -> List[SidebarItem]:
-        user_dict = await getNSidebarRecipes(limit, info)
+    async def getNSidebarItems(self, info: Info, limit: int, search: str, mode: str) -> List[SidebarItem]:
+        user_dict = await getNSidebarRecipes(limit, search, mode, info)
         return user_dict
 
     @strawberry.field

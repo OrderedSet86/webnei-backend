@@ -31,6 +31,8 @@ preparedQueryConnectionHandler = _PreparedQueryConnectionHandler({
     '_getNEIFluidOutputs': 5,
     '_getNEIGTRecipe': 2,
     'getNSidebarRecipes': 2,
+    'getNSidebarRecipesContains': 2,
+    'getNSidebarRecipesRegex': 2,
 })
 
 
@@ -208,12 +210,37 @@ async def getNEIGTRecipe(recipe_id, info: Info) -> NEI_GT_Recipe:
     return recipe
 
 
-async def getNSidebarRecipes(limit: int, info: Info) -> List[SidebarItem]:
+def preProcessSearch(search: str) -> str:
+    # Avoids SQL injection and/or unintended consequences
+    # For "contains" searches I'm doing LIKE, so _, \, % are reserved characters
+    # (Need to insert escapes for them)
+    reserved = ['_', '\\', '%']
+    buf = ['%']
+    for char in search:
+        if char in reserved:
+            buf.extend(['\\', f'{char}'])
+        else:
+            buf.append(char)
+    buf.append('%')
+    return ''.join(buf)
+
+
+async def getNSidebarRecipes(limit: int, search: str, mode: str, info: Info) -> List[SidebarItem]:
     # stmt = select(rma.Item).limit(limit)
     # async with get_session() as session:
     #     results = (await session.execute(stmt)).scalars().all()
 
-    rows = await _getData('getNSidebarRecipes', limit)
+    # Mode can be either "contains" or "regex"
+
+    if mode == 'contains':
+        if search == '':
+            rows = await _getData('getNSidebarRecipes', limit)
+        else:
+            search = preProcessSearch(search)
+            rows = await _getData('getNSidebarRecipesContains', limit, search)
+    elif mode == 'regex':
+        rows = await _getData('getNSidebarRecipesRegex', limit, search)
+    
     sidebar_recipes = [
         SidebarItem(**{
             'item_id': r['id'],
@@ -223,7 +250,6 @@ async def getNSidebarRecipes(limit: int, info: Info) -> List[SidebarItem]:
         })
         for r in rows
     ]
-    
     return sidebar_recipes
 
 
