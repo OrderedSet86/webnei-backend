@@ -1,5 +1,6 @@
 import asyncio
 
+import yappi
 from typing import List, Dict
 from strawberry.types import Info
 
@@ -232,6 +233,8 @@ async def getNSidebarRecipes(limit: int, search: str, mode: str, info: Info) -> 
 
     # Mode can be either "contains" or "regex"
 
+    # yappi.set_clock_type("WALL")
+    # with yappi.run():
     if mode == 'contains':
         if search == '':
             rows = await _getData('getNSidebarRecipes', limit)
@@ -241,6 +244,9 @@ async def getNSidebarRecipes(limit: int, search: str, mode: str, info: Info) -> 
     elif mode == 'regex':
         rows = await _getData('getNSidebarRecipesRegex', limit, search)
     
+    # for stat in yappi.get_func_stats().sort('tsub'):
+    #     print(f'{stat.module}:{stat.name} {stat.ncall}x {stat.tavg:.2f}s {stat.tsub:.2f}s')
+
     sidebar_recipes = [
         SidebarItem(**{
             'item_id': r['id'],
