@@ -55,9 +55,9 @@ class NEI_Base_Recipe:
     recipe_id: str
 
     input_items: List[NEI_Item]
-    input_fluids: List[NEI_Fluid]
     output_items: List[NEI_Item]
-    output_fluids: List[NEI_Item]
+    input_fluids: List[NEI_Fluid]
+    output_fluids: List[NEI_Fluid]
 
 
 @strawberry.type

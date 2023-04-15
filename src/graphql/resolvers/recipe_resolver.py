@@ -284,6 +284,8 @@ async def _getAndSplitNEIRecipesByType(recipe_ids: List[int]) -> Dict["GT": List
         'GT': [],
         'Other': [],
     }
+    if recipe_ids == []:
+        return output_recipes
 
     # These can't get the prepared statement treatment cause the list is dynamic :(
 
