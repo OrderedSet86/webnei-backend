@@ -89,7 +89,7 @@ class NEI_GT_Recipe:
     requires_cleanroom: bool
     requires_low_gravity: bool
     voltage: int
-    voltage_tier: int
+    voltage_tier: str
 
 
 @strawberry.type
