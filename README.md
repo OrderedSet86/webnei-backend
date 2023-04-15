@@ -2,7 +2,7 @@
 
 ### Install \[Linux\]
 
-1. Have PostgreSQL database version of nesql-exporter output
+1. Have PostgreSQL database version of nesql-exporter output (2.2.8 zip here https://github.com/harrynull/NEIGraphQL/releases/tag/gtnh_dump, you can load the dump with `psql -d nesql228 -f Downloads/dump.sql`)
 2. Install pipenv https://pypi.org/project/pipenv/
 3. (in root directory) `pipenv install`
 4. Adjust PostgreSQL connection info in `envs/.env`
