@@ -164,6 +164,7 @@ class _PreparedQueryConnectionHandler:
     async def getPreparedStatement(self, namespace):
         await self._semaphores[namespace].acquire() # Decrement semaphore count or block if unavailable
         index = await self._getFirstAvailableLock(namespace)
+        # print('Dispatching prepared query', namespace, self._queries_by_namespace[namespace])
         return self.prepared_queries[namespace][index], index
 
     async def releasePreparedStatement(self, namespace, index):

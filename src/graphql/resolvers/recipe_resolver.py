@@ -289,11 +289,17 @@ async def _getAndSplitNEIRecipesByType(recipe_ids: List[int]) -> Dict["GT": List
 
     # These can't get the prepared statement treatment cause the list is dynamic :(
 
+    if len(recipe_ids) > 1:
+        recipe_ids_string = tuple(recipe_ids)
+    else:
+        # PostgreSQL doesn't like trailing commas
+        recipe_ids_string = f"('{recipe_ids[0]}')"
+
     base_stmt = f"""
     SELECT recipe.id, recipe_type.category 
     FROM recipe_type
     JOIN recipe ON recipe.recipe_type_id = recipe_type.id 
-    WHERE recipe.id IN {tuple(recipe_ids)} AND recipe_type.category
+    WHERE recipe.id IN {recipe_ids_string} AND recipe_type.category
     """
     gt_recipes_query = base_stmt + " = 'gregtech'"
     other_recipes_query = base_stmt + "!= 'gregtech'"
