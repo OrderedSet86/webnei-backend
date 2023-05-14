@@ -51,19 +51,28 @@ class NEI_Fluid:
 
 
 @strawberry.type
+class NEI_Recipe_Dimensions:
+    height: int
+    width: int
+
+
+@strawberry.type
+class NEI_All_Dimensions:
+    fluid_input_dims: NEI_Recipe_Dimensions
+    fluid_output_dims: NEI_Recipe_Dimensions
+    item_input_dims: NEI_Recipe_Dimensions
+    item_output_dims: NEI_Recipe_Dimensions
+
+
+@strawberry.type
 class NEI_Base_Recipe:
     recipe_id: str
 
+    dimensions: NEI_All_Dimensions
     input_items: List[NEI_Item]
     output_items: List[NEI_Item]
     input_fluids: List[NEI_Fluid]
     output_fluids: List[NEI_Fluid]
-
-
-@strawberry.type
-class NEI_Recipe_Dimensions:
-    height: int
-    width: int
 
 
 @strawberry.type
@@ -74,10 +83,6 @@ class NEI_GT_Recipe:
 
     # Type info for recipe
     localized_machine_name: str
-    fluid_input_dims: NEI_Recipe_Dimensions
-    fluid_output_dims: NEI_Recipe_Dimensions
-    item_input_dims: NEI_Recipe_Dimensions
-    item_output_dims: NEI_Recipe_Dimensions
     icon_info: str
     icon_id: str
     shapeless: bool

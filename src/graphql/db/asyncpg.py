@@ -82,7 +82,7 @@ class _PreparedQueryConnectionHandler:
                 WHERE recipe_fluid_outputs.recipe_id = $1
                 """,
             '_getNEIGTRecipe': f"""
-                SELECT recipe_type.id, recipe_type.category, recipe_type.fluid_input_dimension_height, recipe_type.fluid_input_dimension_width, recipe_type.fluid_output_dimension_height, recipe_type.fluid_output_dimension_width, recipe_type.icon_info, recipe_type.item_input_dimension_height, recipe_type.item_input_dimension_width, recipe_type.item_output_dimension_height, recipe_type.item_output_dimension_width, recipe_type.shapeless, recipe_type.type, recipe_type.icon_id, greg_tech_recipe.id AS greg_tech_recipe_id, greg_tech_recipe.additional_info, greg_tech_recipe.amperage, greg_tech_recipe.duration, greg_tech_recipe.requires_cleanroom, greg_tech_recipe.requires_low_gravity, greg_tech_recipe.voltage, greg_tech_recipe.voltage_tier, greg_tech_recipe.recipe_id 
+                SELECT recipe_type.id, recipe_type.icon_info, recipe_type.shapeless, recipe_type.type, recipe_type.icon_id, greg_tech_recipe.additional_info, greg_tech_recipe.amperage, greg_tech_recipe.duration, greg_tech_recipe.requires_cleanroom, greg_tech_recipe.requires_low_gravity, greg_tech_recipe.voltage, greg_tech_recipe.voltage_tier, greg_tech_recipe.recipe_id 
                 FROM recipe_type 
                 JOIN recipe ON recipe_type.id = recipe.recipe_type_id
                 JOIN greg_tech_recipe ON greg_tech_recipe.recipe_id = recipe.id
@@ -108,6 +108,12 @@ class _PreparedQueryConnectionHandler:
                 FROM item
                 WHERE item.localized_name ~* $2
                 LIMIT $1
+                """,
+            '_getNEIRecipeDimensions': f"""
+                SELECT recipe_type.fluid_input_dimension_height, recipe_type.fluid_input_dimension_width, recipe_type.fluid_output_dimension_height, recipe_type.fluid_output_dimension_width, recipe_type.item_input_dimension_height, recipe_type.item_input_dimension_width, recipe_type.item_output_dimension_height, recipe_type.item_output_dimension_width
+                FROM recipe_type
+                JOIN recipe ON recipe.recipe_type_id = recipe_type.id
+                WHERE recipe.id = $1
                 """,
         }
 

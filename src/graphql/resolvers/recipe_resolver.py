@@ -7,6 +7,7 @@ from strawberry.types import Info
 from src.graphql.db.asyncpg import connectionHandler, _PreparedQueryConnectionHandler
 from src.graphql.scalars.recipe_scalar import (
     AssociatedRecipes,
+    NEI_All_Dimensions,
     NEI_Base_Recipe,
     NEI_Fluid,
     NEI_GT_Recipe,
@@ -30,6 +31,7 @@ preparedQueryConnectionHandler = _PreparedQueryConnectionHandler({
     '_getNEIItemOutputs': 5,
     '_getNEIFluidInputs': 5,
     '_getNEIFluidOutputs': 5,
+    '_getNEIRecipeDimensions': 5,
     '_getNEIGTRecipe': 2,
     'getNSidebarRecipes': 2,
     'getNSidebarRecipesContains': 2,
@@ -150,6 +152,23 @@ async def _getNEIFluidOutputs(rec_id) -> List[NEI_Fluid]:
     return fluid_outputs
 
 
+async def _getNEIRecipeDimensions(rec_id):
+    # stmt = select(rma.RecipeType) \
+    #        .join(rma.Recipe, rma.Recipe.recipe_type_id == rma.RecipeType.id) \
+    #        .filter(rma.Recipe.id == rec_id)
+
+    rows = await _getData('_getNEIRecipeDimensions', rec_id)
+    findict = _prepStrawberryDictFromRecord(rows[0])
+    for single_type in ['item', 'fluid']:
+        for direction in ['input', 'output']:
+            findict[f'{single_type}_{direction}_dims'] = NEI_Recipe_Dimensions(
+                height = findict.pop(f'{single_type}_{direction}_dimension_height'),
+                width = findict.pop(f'{single_type}_{direction}_dimension_width'),
+            )
+
+    return NEI_All_Dimensions(**findict)
+
+
 async def _getNEIRecipe(rec_id) -> NEI_Base_Recipe:
     construction_dict = dict(recipe_id=rec_id)
 
@@ -158,6 +177,7 @@ async def _getNEIRecipe(rec_id) -> NEI_Base_Recipe:
         _getNEIFluidInputs(rec_id),
         _getNEIItemOutputs(rec_id),
         _getNEIFluidOutputs(rec_id),
+        _getNEIRecipeDimensions(rec_id),
     ]
     results = await asyncio.gather(*awaitables)
 
@@ -165,6 +185,7 @@ async def _getNEIRecipe(rec_id) -> NEI_Base_Recipe:
     construction_dict['input_fluids'] = results[1]
     construction_dict['output_items'] = results[2]
     construction_dict['output_fluids'] = results[3]
+    construction_dict['dimensions'] = results[4]
 
     return NEI_Base_Recipe(**construction_dict)
 
@@ -187,17 +208,9 @@ async def _getNEIGTRecipe(rec_id) -> NEI_GT_Recipe:
             'duration': 'duration_ticks',
         },
         exclude = [
-            'category', # They're all "gregtech"
             'id',
-            'greg_tech_recipe_id',
         ],
     ))
-    for single_type in ['item', 'fluid']:
-        for direction in ['input', 'output']:
-            findict[f'{single_type}_{direction}_dims'] = NEI_Recipe_Dimensions(
-                height = findict.pop(f'{single_type}_{direction}_dimension_height'),
-                width = findict.pop(f'{single_type}_{direction}_dimension_width'),
-            )
 
     gt_recipe = NEI_GT_Recipe(**findict)
     
