@@ -295,14 +295,17 @@ async def _getAndSplitNEIRecipesByType(recipe_ids: List[int]) -> Dict["GT": List
         # PostgreSQL doesn't like trailing commas
         recipe_ids_string = f"('{recipe_ids[0]}')"
 
+    recipe_limit = 100
+
     base_stmt = f"""
     SELECT recipe.id, recipe_type.category 
     FROM recipe_type
     JOIN recipe ON recipe.recipe_type_id = recipe_type.id 
     WHERE recipe.id IN {recipe_ids_string} AND recipe_type.category
     """
-    gt_recipes_query = base_stmt + " = 'gregtech'"
-    other_recipes_query = base_stmt + "!= 'gregtech'"
+    gt_recipes_query = base_stmt + f" = 'gregtech'\nLIMIT {recipe_limit}"
+    other_recipes_query = base_stmt + f"!= 'gregtech'\nLIMIT {recipe_limit}"
+
 
     gt_recipes, other_recipes = await asyncio.gather(
         _getGTRecipes(gt_recipes_query), 
