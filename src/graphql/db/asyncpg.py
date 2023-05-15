@@ -109,8 +109,8 @@ class _PreparedQueryConnectionHandler:
                 WHERE item.localized_name ~* $2
                 LIMIT $1
                 """,
-            '_getNEIRecipeDimensions': f"""
-                SELECT recipe_type.fluid_input_dimension_height, recipe_type.fluid_input_dimension_width, recipe_type.fluid_output_dimension_height, recipe_type.fluid_output_dimension_width, recipe_type.item_input_dimension_height, recipe_type.item_input_dimension_width, recipe_type.item_output_dimension_height, recipe_type.item_output_dimension_width
+            '_getNEIRecipeTypeInfo': f"""
+                SELECT recipe_type.type, recipe_type.icon_id, recipe_type.fluid_input_dimension_height, recipe_type.fluid_input_dimension_width, recipe_type.fluid_output_dimension_height, recipe_type.fluid_output_dimension_width, recipe_type.item_input_dimension_height, recipe_type.item_input_dimension_width, recipe_type.item_output_dimension_height, recipe_type.item_output_dimension_width
                 FROM recipe_type
                 JOIN recipe ON recipe.recipe_type_id = recipe_type.id
                 WHERE recipe.id = $1

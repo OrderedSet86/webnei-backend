@@ -68,6 +68,8 @@ class NEI_All_Dimensions:
 class NEI_Base_Recipe:
     recipe_id: str
 
+    recipe_type: str
+    icon_id: str
     dimensions: NEI_All_Dimensions
     input_items: List[NEI_Item]
     output_items: List[NEI_Item]
@@ -108,6 +110,5 @@ class SidebarItem:
 @strawberry.type
 class AssociatedRecipes:
     single_id: str
-    makeOrUse: str
     GTRecipes: List[NEI_GT_Recipe]
     OtherRecipes: List[NEI_Base_Recipe]

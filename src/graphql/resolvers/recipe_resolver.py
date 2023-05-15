@@ -1,6 +1,5 @@
 import asyncio
 
-import yappi
 from typing import List, Dict
 from strawberry.types import Info
 
@@ -31,7 +30,7 @@ preparedQueryConnectionHandler = _PreparedQueryConnectionHandler({
     '_getNEIItemOutputs': 5,
     '_getNEIFluidInputs': 5,
     '_getNEIFluidOutputs': 5,
-    '_getNEIRecipeDimensions': 5,
+    '_getNEIRecipeTypeInfo': 5,
     '_getNEIGTRecipe': 2,
     'getNSidebarRecipes': 2,
     'getNSidebarRecipesContains': 2,
@@ -152,21 +151,31 @@ async def _getNEIFluidOutputs(rec_id) -> List[NEI_Fluid]:
     return fluid_outputs
 
 
-async def _getNEIRecipeDimensions(rec_id):
+async def _getNEIRecipeTypeInfo(rec_id):
     # stmt = select(rma.RecipeType) \
     #        .join(rma.Recipe, rma.Recipe.recipe_type_id == rma.RecipeType.id) \
     #        .filter(rma.Recipe.id == rec_id)
 
-    rows = await _getData('_getNEIRecipeDimensions', rec_id)
-    findict = _prepStrawberryDictFromRecord(rows[0])
+    rows = await _getData('_getNEIRecipeTypeInfo', rec_id)
+    rowdict = _prepStrawberryDictFromRecord(
+        rows[0],
+        rename={'type': 'recipe_type'}
+    )
+    icon_id = rowdict.pop('icon_id')
+    recipe_type = rowdict.pop('recipe_type')
     for single_type in ['item', 'fluid']:
         for direction in ['input', 'output']:
-            findict[f'{single_type}_{direction}_dims'] = NEI_Recipe_Dimensions(
-                height = findict.pop(f'{single_type}_{direction}_dimension_height'),
-                width = findict.pop(f'{single_type}_{direction}_dimension_width'),
+            rowdict[f'{single_type}_{direction}_dims'] = NEI_Recipe_Dimensions(
+                height = rowdict.pop(f'{single_type}_{direction}_dimension_height'),
+                width = rowdict.pop(f'{single_type}_{direction}_dimension_width'),
             )
+    findict = {
+        'recipe_type': recipe_type,
+        'icon_id': icon_id,
+        'dimensions': NEI_All_Dimensions(**rowdict),
+    }
 
-    return NEI_All_Dimensions(**findict)
+    return findict
 
 
 async def _getNEIRecipe(rec_id) -> NEI_Base_Recipe:
@@ -177,7 +186,7 @@ async def _getNEIRecipe(rec_id) -> NEI_Base_Recipe:
         _getNEIFluidInputs(rec_id),
         _getNEIItemOutputs(rec_id),
         _getNEIFluidOutputs(rec_id),
-        _getNEIRecipeDimensions(rec_id),
+        _getNEIRecipeTypeInfo(rec_id),
     ]
     results = await asyncio.gather(*awaitables)
 
@@ -185,7 +194,7 @@ async def _getNEIRecipe(rec_id) -> NEI_Base_Recipe:
     construction_dict['input_fluids'] = results[1]
     construction_dict['output_items'] = results[2]
     construction_dict['output_fluids'] = results[3]
-    construction_dict['dimensions'] = results[4]
+    construction_dict.update(results[4])
 
     return NEI_Base_Recipe(**construction_dict)
 
@@ -245,9 +254,6 @@ async def getNSidebarRecipes(limit: int, search: str, mode: str, info: Info) -> 
     #     results = (await session.execute(stmt)).scalars().all()
 
     # Mode can be either "contains" or "regex"
-
-    # yappi.set_clock_type("WALL")
-    # with yappi.run():
     if mode == 'contains':
         if search == '':
             rows = await _getData('getNSidebarRecipes', limit)
@@ -256,9 +262,6 @@ async def getNSidebarRecipes(limit: int, search: str, mode: str, info: Info) -> 
             rows = await _getData('getNSidebarRecipesContains', limit, search)
     elif mode == 'regex':
         rows = await _getData('getNSidebarRecipesRegex', limit, search)
-    
-    # for stat in yappi.get_func_stats().sort('tsub'):
-    #     print(f'{stat.module}:{stat.name} {stat.ncall}x {stat.tavg:.2f}s {stat.tsub:.2f}s')
 
     sidebar_recipes = [
         SidebarItem(**{
@@ -357,7 +360,6 @@ async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> Associate
 
     output_recipes = AssociatedRecipes(
         single_id = single_id,
-        makeOrUse = 'Make',
         GTRecipes = output_recipes['GT'],
         OtherRecipes = output_recipes['Other'],
     )
@@ -392,7 +394,6 @@ async def getNEIRecipesThatUseSingleId(single_id: int, info: Info) -> Associated
 
     output_recipes = AssociatedRecipes(
         single_id = single_id,
-        makeOrUse = 'Make',
         GTRecipes = output_recipes['GT'],
         OtherRecipes = output_recipes['Other'],
     )
