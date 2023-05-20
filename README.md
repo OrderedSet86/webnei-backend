@@ -20,6 +20,12 @@ query RecipeByRecipeID {
     voltage
     amperage
     baseRecipe {
+      dimensions {
+        itemInputDims {
+          height
+          width
+        }
+      }
       inputItems {
         id
         localizedName
@@ -55,7 +61,6 @@ query SidebarItems(
 query UseItems($single_id: String! = "i~gregtech~gt.metaitem.01~23019") {
   getRecipesThatUseSingleId(itemId: $single_id) {
     singleId
-    makeOrUse
     GTRecipes {
       localizedMachineName
       amperage
@@ -81,24 +86,104 @@ query UseItems($single_id: String! = "i~gregtech~gt.metaitem.01~23019") {
 query MakeItems($single_id: String! = "i~gregtech~gt.metaitem.01~23019") {
   getRecipesThatMakeSingleId(itemId: $single_id) {
     singleId
-    makeOrUse
     GTRecipes {
       localizedMachineName
       amperage
       voltage
       durationTicks
       baseRecipe {
-        inputItems {
-          id
-          localizedName
-          stackSize
-        }
-        outputItems {
-          localizedName
-          stackSize
-        }
+        ...NEIBaseRecipeFragment
       }
+      additionalInfo
+      recipeId
+      requiresCleanroom
+      requiresLowGravity
+      shapeless
+      voltageTier
     }
+    OtherRecipes {
+      ...NEIBaseRecipeFragment
+    }
+  }
+}
+
+fragment NEIFluidFragment on NEIFluid {
+  density
+  fluidId
+  gaseous
+  id
+  imageFilePath
+  input
+  internalName
+  localizedName
+  liters
+  luminosity
+  modId
+  nbt
+  outputProbability
+  position
+  temperature
+  unlocalizedName
+  viscosity
+}
+
+fragment NEIItemFragment on NEIItem {
+  id
+  localizedName
+  stackSize
+  imageFilePath
+  input
+  internalName
+  itemDamage
+  itemId
+  maxDamage
+  maxStackSize
+  modId
+  nbt
+  outputProbability
+  position
+  tooltip
+  unlocalizedName
+}
+
+fragment RecipeDimensionFragment on NEIRecipeDimensions {
+  height
+  width
+}
+
+fragment NEIDimensionFragment on NEIAllDimensions {
+  itemInputDims {
+    ...RecipeDimensionFragment
+  }
+  itemOutputDims {
+    ...RecipeDimensionFragment
+  }
+  fluidInputDims {
+    ...RecipeDimensionFragment
+  }
+  fluidOutputDims {
+    ...RecipeDimensionFragment
+  }
+}
+
+fragment NEIBaseRecipeFragment on NEIBaseRecipe {
+  recipeId
+  
+  iconId
+  dimensions {
+    ...NEIDimensionFragment
+  }
+  inputItems {
+    ...NEIItemFragment
+  }
+  outputItems {
+    ...NEIItemFragment
+  }
+  inputFluids {
+    ...NEIFluidFragment
+  }
+  outputFluids {
+    ...NEIFluidFragment
   }
 }
 ```
