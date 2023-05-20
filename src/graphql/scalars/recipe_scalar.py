@@ -5,7 +5,7 @@ from typing import List
 @strawberry.type
 class NEI_Item:
     id: str
-    item_id: str
+    item_id: int
 
     position: int
     stack_size: int
@@ -28,13 +28,12 @@ class NEI_Item:
 @strawberry.type
 class NEI_Fluid:
     id: str
-    fluid_id: str
+    fluid_id: int
 
     position: int
     liters: int
 
     density: int
-    fluid_id: int
     gaseous: bool
     image_file_path: str
     internal_name: str

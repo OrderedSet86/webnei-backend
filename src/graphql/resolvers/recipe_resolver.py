@@ -333,7 +333,7 @@ async def _getAndSplitNEIRecipesByType(recipe_ids: List[int]) -> Dict["GT": List
     return output_recipes
 
 
-async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> AssociatedRecipes:
+async def getNEIRecipesThatMakeSingleId(single_id: str, info: Info) -> AssociatedRecipes:
     # Ignore the fluid/item distinction and just run the SQL queries
     # The tables have a hash index, it's faster to just run them than check the type :)
 
@@ -367,7 +367,7 @@ async def getNEIRecipesThatMakeSingleId(single_id: int, info: Info) -> Associate
     return output_recipes
 
 
-async def getNEIRecipesThatUseSingleId(single_id: int, info: Info) -> AssociatedRecipes:
+async def getNEIRecipesThatUseSingleId(single_id: str, info: Info) -> AssociatedRecipes:
     # Ignore the fluid/item distinction and just run the SQL queries
     # The tables have a hash index, it's faster to just run them than check the type :)
 
